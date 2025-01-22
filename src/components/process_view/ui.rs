@@ -37,8 +37,7 @@ pub fn show_process(
                             ui.label(" | ");
                             ui.label(format!("Peak: {:.1}%", stats.peak_cpu));
                         });
-                        let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
-                        plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, max_cpu * (1.0 + settings.graph_scale_margin));
+                        plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, stats.peak_cpu * (1.0 + settings.graph_scale_margin));
                     }
                 }
             }
@@ -50,8 +49,7 @@ pub fn show_process(
                             ui.label(" | ");
                             ui.label(format!("Peak: {:.1} MB", stats.peak_memory_mb));
                         });
-                        let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
-                        plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, max_memory * (1.0 + settings.graph_scale_margin));
+                        plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, stats.peak_memory_mb * (1.0 + settings.graph_scale_margin));
                     }
                 }
             }
@@ -154,11 +152,11 @@ pub fn show_process(
     });
 }
 
-fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history: &[f32], max_points: usize, max_value: f32) {
+fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history: Vec<f32>, max_points: usize, max_value: f32) {
     let plot = egui_plot::Plot::new(id)
         .height(height)
         .show_axes(true)
-        .set_margin_fraction(egui::Vec2::ZERO)
+        .set_margin_fraction(egui::Vec2::splat(0.005))
         .include_x(0.0)
         .include_x(max_points as f64)
         .include_y(0.0)
@@ -170,9 +168,10 @@ fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history
         .allow_double_click_reset(false);
 
     plot.show(ui, |plot_ui| {
+        let start_x = (max_points - history.len()) as f64;
         let points: egui_plot::PlotPoints = (0..history.len())
-            .map(|i| [i as f64, history[i] as f64])
+            .map(|i| [start_x + i as f64, history[i] as f64])
             .collect();
-        plot_ui.line(egui_plot::Line::new(points));
+        plot_ui.line(egui_plot::Line::new(points).width(2.0));
     });
 } 
