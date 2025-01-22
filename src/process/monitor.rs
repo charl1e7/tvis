@@ -11,9 +11,6 @@ pub struct ProcessMonitor {
 
 impl ProcessMonitor {
     /// Creates a new ProcessMonitor with the specified update interval
-    ///
-    /// # Arguments
-    /// * `update_interval` - Minimum time between updates
     pub fn new(update_interval: Duration) -> Self {
         Self {
             system: System::new(),
@@ -45,15 +42,6 @@ impl ProcessMonitor {
     }
 
     /// Gets detailed statistics for a process and its children
-    ///
-    /// # Arguments
-    /// * `process_name` - Name of the process to monitor
-    /// * `history` - Historical data for CPU usage calculations
-    /// * `process_idx` - Index in the history for this process
-    ///
-    /// # Returns
-    /// * `Some(ProcessStats)` if the process exists
-    /// * `None` if the process is not found
     pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
         let processes: Vec<_> = self.system.processes()
             .values()
@@ -108,9 +96,6 @@ impl ProcessMonitor {
     }
 
     /// Gets child processes for the given parent processes
-    ///
-    /// # Arguments
-    /// * `parent_processes` - List of parent processes to find children for
     fn get_child_processes(&self, parent_processes: &[&Process]) -> Vec<ProcessInfo> {
         let parent_pids: Vec<_> = parent_processes.iter()
             .map(|p| p.pid())
@@ -133,9 +118,6 @@ impl ProcessMonitor {
     }
 
     /// Checks if a process exists in the system
-    ///
-    /// # Arguments
-    /// * `process_name` - Name of the process to check
     pub fn process_exists(&self, process_name: &str) -> bool {
         self.system.processes()
             .values()
@@ -143,9 +125,6 @@ impl ProcessMonitor {
     }
 
     /// Gets basic statistics for a process without requiring history
-    ///
-    /// # Arguments
-    /// * `process_name` - Name of the process to monitor
     pub fn get_basic_stats(&self, process_name: &str) -> Option<ProcessStats> {
         let processes: Vec<_> = self.system.processes()
             .values()

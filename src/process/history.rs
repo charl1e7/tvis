@@ -18,9 +18,6 @@ pub struct ProcessHistory {
 
 impl ProcessHistory {
     /// Creates a new ProcessHistory with the specified maximum history size
-    ///
-    /// # Arguments
-    /// * `max_points` - Maximum number of historical data points to store
     pub fn new(max_points: usize) -> Self {
         Self {
             cpu_history: Vec::new(),
@@ -32,10 +29,6 @@ impl ProcessHistory {
     }
 
     /// Updates CPU usage history for a monitored process
-    ///
-    /// # Arguments
-    /// * `process_idx` - Index of the process in the monitoring list
-    /// * `cpu_usage` - Current CPU usage percentage
     pub fn update_process_cpu(&mut self, process_idx: usize, cpu_usage: f32) {
         if process_idx >= self.cpu_history.len() {
             self.cpu_history.push(Vec::new());
@@ -49,10 +42,6 @@ impl ProcessHistory {
     }
 
     /// Updates CPU usage history for a child process
-    ///
-    /// # Arguments
-    /// * `pid` - Process ID of the child process
-    /// * `cpu_usage` - Current CPU usage percentage
     pub fn update_child_cpu(&mut self, pid: Pid, cpu_usage: f32) {
         let history = self.child_cpu_history.entry(pid).or_insert_with(Vec::new);
         history.push(cpu_usage);
@@ -62,10 +51,6 @@ impl ProcessHistory {
     }
 
     /// Updates memory usage history for a monitored process
-    ///
-    /// # Arguments
-    /// * `process_idx` - Index of the process in the monitoring list
-    /// * `memory_mb` - Current memory usage in megabytes
     pub fn update_memory(&mut self, process_idx: usize, memory_mb: f32) {
         if process_idx >= self.memory_history.len() {
             self.memory_history.push(Vec::new());
@@ -79,10 +64,6 @@ impl ProcessHistory {
     }
 
     /// Updates memory usage history for a child process
-    ///
-    /// # Arguments
-    /// * `pid` - Process ID of the child process
-    /// * `memory_mb` - Current memory usage in megabytes
     pub fn update_child_memory(&mut self, pid: Pid, memory_mb: f32) {
         let history = self.child_memory_history.entry(pid).or_insert_with(Vec::new);
         history.push(memory_mb);
@@ -92,66 +73,33 @@ impl ProcessHistory {
     }
 
     /// Gets CPU usage history for a monitored process
-    ///
-    /// # Arguments
-    /// * `idx` - Index of the process in the monitoring list
-    ///
-    /// # Returns
-    /// * `Some(&Vec<f32>)` if the process exists
-    /// * `None` if the process index is invalid
     pub fn get_process_cpu_history(&self, idx: usize) -> Option<&Vec<f32>> {
         self.cpu_history.get(idx)
     }
 
     /// Gets CPU usage history for a child process
-    ///
-    /// # Arguments
-    /// * `pid` - Process ID of the child process
-    ///
-    /// # Returns
-    /// * `Some(&Vec<f32>)` if history exists for the PID
-    /// * `None` if no history exists
     pub fn get_child_cpu_history(&self, pid: &Pid) -> Option<&Vec<f32>> {
         self.child_cpu_history.get(pid)
     }
 
     /// Gets memory usage history for a monitored process
-    ///
-    /// # Arguments
-    /// * `idx` - Index of the process in the monitoring list
-    ///
-    /// # Returns
-    /// * `Some(&Vec<f32>)` if the process exists
-    /// * `None` if the process index is invalid
     pub fn get_memory_history(&self, idx: usize) -> Option<&Vec<f32>> {
         self.memory_history.get(idx)
     }
 
     /// Gets memory usage history for a child process
-    ///
-    /// # Arguments
-    /// * `pid` - Process ID of the child process
-    ///
-    /// # Returns
-    /// * `Some(&Vec<f32>)` if history exists for the PID
-    /// * `None` if no history exists
+
     pub fn get_child_memory_history(&self, pid: &Pid) -> Option<&Vec<f32>> {
         self.child_memory_history.get(pid)
     }
 
     /// Removes history entries for child processes that are no longer active
-    ///
-    /// # Arguments
-    /// * `active_pids` - List of currently active process IDs
     pub fn cleanup_child_histories(&mut self, active_pids: &[Pid]) {
         self.child_cpu_history.retain(|pid, _| active_pids.contains(pid));
         self.child_memory_history.retain(|pid, _| active_pids.contains(pid));
     }
 
     /// Removes history for a monitored process
-    ///
-    /// # Arguments
-    /// * `idx` - Index of the process to remove
     pub fn remove_process(&mut self, idx: usize) {
         if idx < self.cpu_history.len() {
             self.cpu_history.remove(idx);
