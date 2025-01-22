@@ -32,7 +32,11 @@ pub fn show_process(
             MetricType::Cpu => {
                 if let Some(cpu_history) = history.get_process_cpu_history(process_idx) {
                     if !cpu_history.is_empty() {
-                        ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
+                        ui.horizontal(|ui| {
+                            ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
+                            ui.label(" | ");
+                            ui.label(format!("Peak: {:.1}%", stats.peak_cpu));
+                        });
                         let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
                         plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, max_cpu * (1.0 + settings.graph_scale_margin));
                     }
@@ -41,7 +45,11 @@ pub fn show_process(
             MetricType::Memory => {
                 if let Some(memory_history) = history.get_memory_history(process_idx) {
                     if !memory_history.is_empty() {
-                        ui.label(format!("Memory Usage: {:.1} MB", memory_history.last().unwrap()));
+                        ui.horizontal(|ui| {
+                            ui.label(format!("Memory Usage: {:.1} MB", memory_history.last().unwrap()));
+                            ui.label(" | ");
+                            ui.label(format!("Peak: {:.1} MB", stats.peak_memory_mb));
+                        });
                         let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
                         plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, max_memory * (1.0 + settings.graph_scale_margin));
                     }
@@ -98,7 +106,13 @@ pub fn show_process(
                                 
                                 match unsafe { CURRENT_METRIC } {
                                     MetricType::Cpu => {
-                                        ui.label(format!("Current CPU: {:.1}%", child.cpu_usage));
+                                        ui.horizontal(|ui| {
+                                            ui.label(format!("Current CPU: {:.1}%", child.cpu_usage));
+                                            ui.label(" | ");
+                                            if let Some(cpu_history) = history.get_child_cpu_history(&child.pid) {
+                                                ui.label(format!("Peak: {:.1}%", cpu_history.iter().copied().fold(0.0, f32::max)));
+                                            }
+                                        });
                                         if let Some(cpu_history) = history.get_child_cpu_history(&child.pid) {
                                             let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(
@@ -112,7 +126,13 @@ pub fn show_process(
                                         }
                                     }
                                     MetricType::Memory => {
-                                        ui.label(format!("Memory Usage: {:.1} MB", child.memory_mb));
+                                        ui.horizontal(|ui| {
+                                            ui.label(format!("Memory Usage: {:.1} MB", child.memory_mb));
+                                            ui.label(" | ");
+                                            if let Some(memory_history) = history.get_child_memory_history(&child.pid) {
+                                                ui.label(format!("Peak: {:.1} MB", memory_history.iter().copied().fold(0.0, f32::max)));
+                                            }
+                                        });
                                         if let Some(memory_history) = history.get_child_memory_history(&child.pid) {
                                             let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(

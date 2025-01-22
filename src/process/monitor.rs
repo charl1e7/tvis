@@ -70,6 +70,32 @@ impl ProcessMonitor {
             .map(|p| p.memory_mb)
             .sum();
 
+        // Calculate peak values from history
+        let peak_cpu = history.get_process_cpu_history(process_idx)
+            .map(|h| h.iter().copied().fold(0.0, f32::max))
+            .unwrap_or(current_cpu);
+
+        let peak_memory = history.get_memory_history(process_idx)
+            .map(|h| h.iter().copied().fold(0.0, f32::max))
+            .unwrap_or(memory_mb);
+
+        // Calculate children peak values
+        let children_peak_cpu = child_processes.iter()
+            .map(|child| {
+                history.get_child_cpu_history(&child.pid)
+                    .map(|h| h.iter().copied().fold(0.0, f32::max))
+                    .unwrap_or(child.cpu_usage)
+            })
+            .sum();
+
+        let children_peak_memory = child_processes.iter()
+            .map(|child| {
+                history.get_child_memory_history(&child.pid)
+                    .map(|h| h.iter().copied().fold(0.0, f32::max))
+                    .unwrap_or(child.memory_mb)
+            })
+            .sum();
+
         // Calculate average CPU usage from history
         let avg_cpu = history.get_process_cpu_history(process_idx)
             .map(|h| h.iter().sum::<f32>() / h.len() as f32)
@@ -87,11 +113,15 @@ impl ProcessMonitor {
         Some(ProcessStats {
             current_cpu,
             avg_cpu,
+            peak_cpu,
             memory_mb,
+            peak_memory_mb: peak_memory,
             child_processes,
             children_avg_cpu,
             children_current_cpu,
+            children_peak_cpu,
             children_memory_mb,
+            children_peak_memory_mb: children_peak_memory,
         })
     }
 
@@ -156,11 +186,15 @@ impl ProcessMonitor {
         Some(ProcessStats {
             current_cpu,
             avg_cpu: current_cpu, // No history available, use current
+            peak_cpu: current_cpu, // No history available, use current
             memory_mb,
+            peak_memory_mb: memory_mb, // No history available, use current
             child_processes,
             children_avg_cpu: children_current_cpu, // No history available, use current
             children_current_cpu,
+            children_peak_cpu: children_current_cpu, // No history available, use current
             children_memory_mb,
+            children_peak_memory_mb: children_memory_mb, // No history available, use current
         })
     }
 } 
