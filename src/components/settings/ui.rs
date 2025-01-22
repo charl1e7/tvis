@@ -40,6 +40,18 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
             ui.separator();
 
             ui.horizontal(|ui| {
+                ui.label("Update Interval:");
+                ui.add(
+                    egui::Slider::new(&mut settings.update_interval_ms, 100..=5000)
+                        .step_by(100.0)
+                        .suffix(" ms")
+                        .text("Time between updates")
+                );
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
                 ui.label("Theme:");
                 let dark_mode = ui.ctx().style().visuals.dark_mode;
                 if ui.button(if dark_mode { "🌞 Light" } else { "🌙 Dark" }).clicked() {

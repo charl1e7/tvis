@@ -19,6 +19,16 @@ impl ProcessMonitor {
         }
     }
 
+    /// Gets the current update interval
+    pub fn update_interval(&self) -> Duration {
+        self.update_interval
+    }
+
+    /// Sets a new update interval
+    pub fn set_update_interval(&mut self, interval: Duration) {
+        self.update_interval = interval;
+    }
+
     /// Checks if enough time has passed for the next update
     pub fn should_update(&self) -> bool {
         self.last_update.elapsed() >= self.update_interval

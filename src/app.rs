@@ -63,6 +63,12 @@ impl ProcessMonitorApp {
 
     /// Updates process metrics if enough time has passed since last update
     fn update_metrics(&mut self) {
+        // Update monitor interval if it changed in settings
+        let current_interval = Duration::from_millis(self.settings.update_interval_ms);
+        if self.monitor.update_interval() != current_interval {
+            self.monitor.set_update_interval(current_interval);
+        }
+
         if !self.monitor.should_update() {
             return;
         }
