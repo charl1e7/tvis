@@ -75,10 +75,12 @@ impl ProcessMonitorApp {
         for (i, process_name) in self.monitored_processes.iter().enumerate() {
             if let Some(stats) = self.monitor.get_basic_stats(process_name) {
                 self.history.update_process_cpu(i, stats.current_cpu);
+                self.history.update_memory(i, stats.memory_mb);
                 
                 // Update child process histories
                 for child in &stats.child_processes {
                     self.history.update_child_cpu(child.pid, child.cpu_usage);
+                    self.history.update_child_memory(child.pid, child.memory_mb);
                     all_active_pids.push(child.pid);
                 }
             }
@@ -199,18 +201,4 @@ impl eframe::App for ProcessMonitorApp {
         // Request repaint
         ctx.request_repaint();
     }
-}
-
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
 }

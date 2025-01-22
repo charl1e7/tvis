@@ -1,4 +1,4 @@
-use crate::process::{ProcessStats, ProcessHistory, SortType};
+use crate::process::{ProcessStats, ProcessHistory, SortType, MetricType};
 use crate::components::stats_view;
 
 pub fn show_process(
@@ -14,16 +14,37 @@ pub fn show_process(
         
         stats_view::show_process_stats(ui, stats);
 
-        // CPU Usage
-        if let Some(cpu_history) = history.get_process_cpu_history(process_idx) {
-            if !cpu_history.is_empty() {
-                ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
-                cpu_plot(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points);
+        // Metric toggle button
+        static mut CURRENT_METRIC: MetricType = MetricType::Cpu;
+        ui.horizontal(|ui| {
+            if ui.selectable_label(unsafe { CURRENT_METRIC == MetricType::Cpu }, "CPU").clicked() {
+                unsafe { CURRENT_METRIC = MetricType::Cpu; }
+            }
+            if ui.selectable_label(unsafe { CURRENT_METRIC == MetricType::Memory }, "Memory").clicked() {
+                unsafe { CURRENT_METRIC = MetricType::Memory; }
+            }
+        });
+
+        // Plot based on selected metric
+        match unsafe { CURRENT_METRIC } {
+            MetricType::Cpu => {
+                if let Some(cpu_history) = history.get_process_cpu_history(process_idx) {
+                    if !cpu_history.is_empty() {
+                        ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
+                        plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, 100.0);
+                    }
+                }
+            }
+            MetricType::Memory => {
+                if let Some(memory_history) = history.get_memory_history(process_idx) {
+                    if !memory_history.is_empty() {
+                        ui.label(format!("Memory Usage: {:.1} MB", memory_history.last().unwrap()));
+                        let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
+                        plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, max_memory * 1.1);
+                    }
+                }
             }
         }
-
-        // Memory Usage
-        ui.label(format!("Memory Usage: {:.1} MB", stats.memory_mb));
 
         // Child Processes
         if !stats.child_processes.is_empty() {
@@ -71,19 +92,36 @@ pub fn show_process(
                                 
                                 ui.heading(&child.name);
                                 ui.label(format!("PID: {} (Avg CPU: {:.1}%)", child.pid, avg_cpu));
-                                ui.label(format!("Current CPU: {:.1}%", child.cpu_usage));
-
-                                if let Some(cpu_history) = history.get_child_cpu_history(&child.pid) {
-                                    cpu_plot(
-                                        ui,
-                                        format!("child_cpu_plot_{}_{}", process_idx, child.pid),
-                                        80.0,
-                                        cpu_history,
-                                        history.history_max_points,
-                                    );
+                                
+                                match unsafe { CURRENT_METRIC } {
+                                    MetricType::Cpu => {
+                                        ui.label(format!("Current CPU: {:.1}%", child.cpu_usage));
+                                        if let Some(cpu_history) = history.get_child_cpu_history(&child.pid) {
+                                            plot_metric(
+                                                ui,
+                                                format!("child_cpu_plot_{}_{}", process_idx, child.pid),
+                                                80.0,
+                                                cpu_history,
+                                                history.history_max_points,
+                                                100.0,
+                                            );
+                                        }
+                                    }
+                                    MetricType::Memory => {
+                                        ui.label(format!("Memory Usage: {:.1} MB", child.memory_mb));
+                                        if let Some(memory_history) = history.get_child_memory_history(&child.pid) {
+                                            let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
+                                            plot_metric(
+                                                ui,
+                                                format!("child_memory_plot_{}_{}", process_idx, child.pid),
+                                                80.0,
+                                                memory_history,
+                                                history.history_max_points,
+                                                max_memory * 1.1,
+                                            );
+                                        }
+                                    }
                                 }
-
-                                ui.label(format!("Memory Usage: {:.1} MB", child.memory_mb));
                             });
                         }
                     });
@@ -92,7 +130,7 @@ pub fn show_process(
     });
 }
 
-fn cpu_plot(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history: &[f32], max_points: usize) {
+fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history: &[f32], max_points: usize, max_value: f32) {
     let plot = egui_plot::Plot::new(id)
         .height(height)
         .show_axes(true)
@@ -100,7 +138,7 @@ fn cpu_plot(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history: &
         .include_x(0.0)
         .include_x(max_points as f64)
         .include_y(0.0)
-        .include_y(100.0)
+        .include_y(max_value as f64)
         .allow_drag(false)
         .allow_zoom(false)
         .allow_scroll(false)

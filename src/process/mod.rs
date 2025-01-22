@@ -18,6 +18,18 @@ pub enum SortType {
     Memory,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MetricType {
+    Cpu,
+    Memory,
+}
+
+impl Default for MetricType {
+    fn default() -> Self {
+        Self::Cpu
+    }
+}
+
 impl Default for SortType {
     fn default() -> Self {
         Self::AvgCpu

@@ -1,5 +1,5 @@
 use super::{ProcessInfo, ProcessStats, ProcessHistory};
-use sysinfo::{System, Process, Pid};
+use sysinfo::{System, Process};
 use std::time::{Duration, Instant};
 
 /// Monitors system processes and provides real-time statistics
