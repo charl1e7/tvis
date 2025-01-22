@@ -59,7 +59,7 @@ impl ProcessMonitorApp {
 
         // Update histories for monitored processes
         for (i, process_name) in self.monitored_processes.iter().enumerate() {
-            if let Some(stats) = self.monitor.get_process_stats(process_name) {
+            if let Some(stats) = self.monitor.get_basic_stats(process_name) {
                 self.history.update_process_cpu(i, stats.current_cpu);
                 
                 // Update child process histories
@@ -162,7 +162,7 @@ impl eframe::App for ProcessMonitorApp {
             // Display process information
             if let Some(idx) = self.active_process_idx {
                 if let Some(process_name) = self.monitored_processes.get(idx) {
-                    if let Some(stats) = self.monitor.get_process_stats(process_name) {
+                    if let Some(stats) = self.monitor.get_process_stats(process_name, &self.history, idx) {
                         process_view::show_process(ui, process_name, &stats, &self.history, idx, &mut self.sort_type);
                     } else {
                         ui.group(|ui| {

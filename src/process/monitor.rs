@@ -1,4 +1,4 @@
-use super::{ProcessInfo, ProcessStats};
+use super::{ProcessInfo, ProcessStats, ProcessHistory};
 use sysinfo::{System, Process, Pid};
 use std::time::{Duration, Instant};
 
@@ -36,7 +36,7 @@ impl ProcessMonitor {
         processes
     }
 
-    pub fn get_process_stats(&self, process_name: &str) -> Option<ProcessStats> {
+    pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
         let processes: Vec<_> = self.system.processes()
             .values()
             .filter(|p| p.name() == process_name)
@@ -48,18 +48,32 @@ impl ProcessMonitor {
 
         let child_processes = self.get_child_processes(&processes);
         
-        let current_cpu = processes.iter().map(|p| p.cpu_usage()).sum();
+        let current_cpu: f32 = processes.iter().map(|p| p.cpu_usage()).sum();
         let memory_mb = processes.iter().map(|p| p.memory()).sum::<u64>() as f32 / 1024.0 / 1024.0;
         
-        let children_current_cpu = child_processes.iter().map(|p| p.cpu_usage).sum();
-        let children_memory_mb = child_processes.iter().map(|p| p.memory_mb).sum();
+        let children_current_cpu: f32 = child_processes.iter().map(|p| p.cpu_usage).sum();
+        let children_memory_mb: f32 = child_processes.iter().map(|p| p.memory_mb).sum();
+
+        // Calculate true average CPU for main process using history
+        let avg_cpu = history.get_process_cpu_history(process_idx)
+            .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+            .unwrap_or(current_cpu);
+
+        // Calculate true average CPU for child processes using history
+        let children_avg_cpu: f32 = child_processes.iter()
+            .map(|child| {
+                history.get_child_cpu_history(&child.pid)
+                    .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+                    .unwrap_or(child.cpu_usage)
+            })
+            .sum();
 
         Some(ProcessStats {
             current_cpu,
-            avg_cpu: 0.0, // This will be calculated using history
+            avg_cpu,
             memory_mb,
             child_processes,
-            children_avg_cpu: 0.0, // This will be calculated using history
+            children_avg_cpu,
             children_current_cpu,
             children_memory_mb,
         })
@@ -90,5 +104,35 @@ impl ProcessMonitor {
         self.system.processes()
             .values()
             .any(|p| p.name() == process_name)
+    }
+
+    // Simple version that doesn't need history for basic stats
+    pub fn get_basic_stats(&self, process_name: &str) -> Option<ProcessStats> {
+        let processes: Vec<_> = self.system.processes()
+            .values()
+            .filter(|p| p.name() == process_name)
+            .collect();
+
+        if processes.is_empty() {
+            return None;
+        }
+
+        let child_processes = self.get_child_processes(&processes);
+        
+        let current_cpu: f32 = processes.iter().map(|p| p.cpu_usage()).sum();
+        let memory_mb = processes.iter().map(|p| p.memory()).sum::<u64>() as f32 / 1024.0 / 1024.0;
+        
+        let children_current_cpu: f32 = child_processes.iter().map(|p| p.cpu_usage).sum();
+        let children_memory_mb: f32 = child_processes.iter().map(|p| p.memory_mb).sum();
+
+        Some(ProcessStats {
+            current_cpu,
+            avg_cpu: current_cpu,
+            memory_mb,
+            child_processes,
+            children_avg_cpu: children_current_cpu,
+            children_current_cpu,
+            children_memory_mb,
+        })
     }
 } 
