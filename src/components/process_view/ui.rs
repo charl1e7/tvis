@@ -1,6 +1,10 @@
 use crate::process::{ProcessStats, ProcessHistory, SortType, MetricType};
 use crate::components::stats_view;
 use crate::components::settings::Settings;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+static POINTS_BUFFER: Lazy<Mutex<Vec<[f64; 2]>>> = Lazy::new(|| Mutex::new(Vec::with_capacity(1000)));
 
 pub fn show_process(
     ui: &mut egui::Ui,
@@ -73,15 +77,26 @@ pub fn show_process(
                 // Sort children based on selected criteria
                 match sort_type {
                     SortType::AvgCpu => {
-                        child_processes.sort_by(|a, b| {
-                            let a_avg = history.get_child_cpu_history(&a.pid)
-                                .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                                .unwrap_or(0.0);
-                            let b_avg = history.get_child_cpu_history(&b.pid)
-                                .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                                .unwrap_or(0.0);
-                            b_avg.partial_cmp(&a_avg).unwrap_or(std::cmp::Ordering::Equal)
+                        // Cache average CPU values
+                        let mut processes_with_avg: Vec<_> = child_processes
+                            .iter()
+                            .map(|p| {
+                                let avg = history.get_child_cpu_history(&p.pid)
+                                    .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+                                    .unwrap_or(0.0);
+                                (p, avg)
+                            })
+                            .collect();
+                        
+                        // Sort using cached values
+                        processes_with_avg.sort_by(|(_, a_avg), (_, b_avg)| {
+                            b_avg.partial_cmp(a_avg).unwrap_or(std::cmp::Ordering::Equal)
                         });
+                        
+                        // Update original vector
+                        child_processes = processes_with_avg.into_iter()
+                            .map(|(p, _)| p.clone())
+                            .collect();
                     }
                     SortType::Memory => {
                         child_processes.sort_by(|a, b| {
@@ -169,9 +184,16 @@ fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history
 
     plot.show(ui, |plot_ui| {
         let start_x = (max_points - history.len()) as f64;
-        let points: egui_plot::PlotPoints = (0..history.len())
-            .map(|i| [start_x + i as f64, history[i] as f64])
-            .collect();
-        plot_ui.line(egui_plot::Line::new(points).width(2.0));
+        
+        // Reuse points buffer
+        let mut points = POINTS_BUFFER.lock().unwrap();
+        points.clear();
+        points.reserve(history.len());
+        
+        for i in 0..history.len() {
+            points.push([start_x + i as f64, history[i] as f64]);
+        }
+        
+        plot_ui.line(egui_plot::Line::new(egui_plot::PlotPoints::from(points.to_vec())).width(2.0));
     });
 } 
