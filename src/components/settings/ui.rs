@@ -52,6 +52,18 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
             ui.separator();
 
             ui.horizontal(|ui| {
+                ui.label("History Length:");
+                ui.add(
+                    egui::Slider::new(&mut settings.history_length, 10..=1000)
+                        .step_by(10.0)
+                        .suffix(" points")
+                        .text("Number of data points in graphs")
+                );
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
                 ui.label("Theme:");
                 let dark_mode = ui.ctx().style().visuals.dark_mode;
                 if ui.button(if dark_mode { "🌞 Light" } else { "🌙 Dark" }).clicked() {

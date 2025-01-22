@@ -4,6 +4,7 @@ pub struct Settings {
     pub font_size: f32,
     pub graph_scale_margin: f32,
     pub update_interval_ms: u64,
+    pub history_length: usize,
     #[serde(skip)]
     show_window: bool,
 }
@@ -15,6 +16,7 @@ impl Default for Settings {
             font_size: 15.0,
             graph_scale_margin: 0.35, // 5% by default
             update_interval_ms: 1000, // 1 second by default
+            history_length: 100,  // Default 100 points
             show_window: false,
         }
     }

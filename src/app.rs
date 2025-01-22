@@ -32,12 +32,13 @@ pub struct ProcessMonitorApp {
 
 impl Default for ProcessMonitorApp {
     fn default() -> Self {
+        let settings = Settings::default();
         Self {
-            monitor: ProcessMonitor::new(Duration::from_millis(1000)),
-            history: ProcessHistory::new(100),
+            monitor: ProcessMonitor::new(Duration::from_millis(settings.update_interval_ms)),
+            history: ProcessHistory::new(settings.history_length),
             monitored_processes: Vec::new(),
             process_selector: ProcessSelector::default(),
-            settings: Settings::default(),
+            settings,
             active_process_idx: None,
             sort_type: SortType::default(),
         }
@@ -52,13 +53,13 @@ impl ProcessMonitorApp {
     /// * `cc` - Creation context from eframe
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_else(|| {
-                log::warn!("Failed to load previous app state, starting with default");
-                Default::default()
-            });
+            let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            // Update history size if it changed in settings
+            app.history = ProcessHistory::new(app.settings.history_length);
+            app
+        } else {
+            Default::default()
         }
-
-        Default::default()
     }
 
     /// Updates process metrics if enough time has passed since last update
@@ -67,6 +68,11 @@ impl ProcessMonitorApp {
         let current_interval = Duration::from_millis(self.settings.update_interval_ms);
         if self.monitor.update_interval() != current_interval {
             self.monitor.set_update_interval(current_interval);
+        }
+
+        // Update history size if it changed
+        if self.history.history_max_points != self.settings.history_length {
+            self.history = ProcessHistory::new(self.settings.history_length);
         }
 
         if !self.monitor.should_update() {
