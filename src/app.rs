@@ -137,8 +137,14 @@ impl eframe::App for ProcessMonitorApp {
 
         show_settings_window(ctx, &mut self.settings);
 
-        egui::SidePanel::left("process_list").show(ctx, |ui| {
+        egui::SidePanel::left("process_list")
+            .resizable(true)
+            .min_width(150.0)
+            .max_width(800.0)
+            .default_width(200.0)
+            .show(ctx, |ui| {
             ui.heading("Monitored Processes");
+            ui.add_space(4.0);
             
             // Process selector
             if let Some(added_idx) = self.process_selector.show(ui, &self.monitor, &mut self.monitored_processes) {
@@ -150,26 +156,20 @@ impl eframe::App for ProcessMonitorApp {
             for (i, process) in self.monitored_processes.iter().enumerate() {
                 ui.horizontal(|ui| {
                     let is_active = self.active_process_idx == Some(i);
-                    let display_name = if process.len() > 7 {
-                        format!("{}...", &process[..4])
-                    } else {
-                        let dots = ".".repeat(7 - process.len());
-                        format!("{}{}", process, dots)
-                    };
                     
-                    ui.horizontal(|ui| {
-                        ui.set_min_width(100.0);
-                        if ui.selectable_label(is_active, display_name).clicked() {
-                            self.active_process_idx = Some(i);
+                    let response = ui.selectable_label(is_active, process);
+                    if response.clicked() {
+                        self.active_process_idx = Some(i);
+                    }
+                    
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.small_button("❌").clicked() {
+                            to_remove = Some(i);
+                            if self.active_process_idx == Some(i) {
+                                self.active_process_idx = None;
+                            }
                         }
                     });
-                    
-                    if ui.small_button("❌").clicked() {
-                        to_remove = Some(i);
-                        if self.active_process_idx == Some(i) {
-                            self.active_process_idx = None;
-                        }
-                    }
                 });
             }
             
