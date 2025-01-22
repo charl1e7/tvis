@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::process::{ProcessMonitor, ProcessHistory};
+use crate::process::{ProcessMonitor, ProcessHistory, SortType};
 use crate::ui::{ProcessSelector, process_view};
 use crate::settings::{Settings, show_settings_window};
 
@@ -16,6 +16,7 @@ pub struct ProcessMonitorApp {
     process_selector: ProcessSelector,
     settings: Settings,
     active_process_idx: Option<usize>,
+    sort_type: SortType,
 }
 
 impl Default for ProcessMonitorApp {
@@ -27,6 +28,7 @@ impl Default for ProcessMonitorApp {
             process_selector: ProcessSelector::default(),
             settings: Settings::default(),
             active_process_idx: None,
+            sort_type: SortType::default(),
         }
     }
 }
@@ -161,7 +163,7 @@ impl eframe::App for ProcessMonitorApp {
             if let Some(idx) = self.active_process_idx {
                 if let Some(process_name) = self.monitored_processes.get(idx) {
                     if let Some(stats) = self.monitor.get_process_stats(process_name) {
-                        process_view::show_process(ui, process_name, &stats, &self.history, idx);
+                        process_view::show_process(ui, process_name, &stats, &self.history, idx, &mut self.sort_type);
                     } else {
                         ui.group(|ui| {
                             ui.heading(process_name);

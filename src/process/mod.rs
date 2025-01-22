@@ -12,6 +12,18 @@ pub struct ProcessInfo {
     pub memory_mb: f32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
+pub enum SortType {
+    AvgCpu,
+    Memory,
+}
+
+impl Default for SortType {
+    fn default() -> Self {
+        Self::AvgCpu
+    }
+}
+
 #[derive(Debug)]
 pub struct ProcessStats {
     pub current_cpu: f32,

@@ -1,4 +1,4 @@
-use crate::process::{ProcessStats, ProcessHistory};
+use crate::process::{ProcessStats, ProcessHistory, SortType};
 use super::{stats_view, cpu_plot};
 
 pub fn show_process(
@@ -7,6 +7,7 @@ pub fn show_process(
     stats: &ProcessStats,
     history: &ProcessHistory,
     process_idx: usize,
+    sort_type: &mut SortType,
 ) {
     ui.group(|ui| {
         ui.heading(name);
@@ -27,18 +28,37 @@ pub fn show_process(
         // Child Processes
         if !stats.child_processes.is_empty() {
             ui.collapsing("Child Processes", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Sort by:");
+                    if ui.selectable_label(*sort_type == SortType::AvgCpu, "Average CPU").clicked() {
+                        *sort_type = SortType::AvgCpu;
+                    }
+                    if ui.selectable_label(*sort_type == SortType::Memory, "Memory").clicked() {
+                        *sort_type = SortType::Memory;
+                    }
+                });
+
                 let mut child_processes = stats.child_processes.clone();
                 
-                // Sort children by average CPU usage
-                child_processes.sort_by(|a, b| {
-                    let a_avg = history.get_child_cpu_history(&a.pid)
-                        .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                        .unwrap_or(0.0);
-                    let b_avg = history.get_child_cpu_history(&b.pid)
-                        .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                        .unwrap_or(0.0);
-                    b_avg.partial_cmp(&a_avg).unwrap_or(std::cmp::Ordering::Equal)
-                });
+                // Sort children based on selected criteria
+                match sort_type {
+                    SortType::AvgCpu => {
+                        child_processes.sort_by(|a, b| {
+                            let a_avg = history.get_child_cpu_history(&a.pid)
+                                .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+                                .unwrap_or(0.0);
+                            let b_avg = history.get_child_cpu_history(&b.pid)
+                                .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+                                .unwrap_or(0.0);
+                            b_avg.partial_cmp(&a_avg).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                    }
+                    SortType::Memory => {
+                        child_processes.sort_by(|a, b| {
+                            b.memory_mb.partial_cmp(&a.memory_mb).unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                    }
+                }
 
                 egui::ScrollArea::vertical()
                     .max_height(300.0)
