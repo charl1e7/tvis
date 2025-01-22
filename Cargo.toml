@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["charl1e7 <>"]
 edition = "2021"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
-rust-version = "1.81"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -13,7 +12,7 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 [dependencies]
 egui = "0.30"
 eframe = { version = "0.30", default-features = false, features = [
-    "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
+    #"accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
     "default_fonts", # Embed the default egui fonts.
     "wgpu",          # Use the glow rendering backend. Alternative: "wgpu".
     "persistence",   # Enable restoring app state when restarting the app.
@@ -21,9 +20,7 @@ eframe = { version = "0.30", default-features = false, features = [
 ] }
 egui_plot = "0.30"
 log = "0.4"
-sysinfo = { version = "0.30.5" }
-plotters = "0.3"
-plotters-backend = "0.3"
+sysinfo = { version = "0.33" }
 
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }
@@ -35,7 +32,7 @@ env_logger = "0.11"
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
-web-sys = "0.3.70"           # to access the DOM (to hide the loading text)
+web-sys = "0.3"           # to access the DOM (to hide the loading text)
 
 [profile.release]
 opt-level = 2 # fast and small wasm

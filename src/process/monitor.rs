@@ -37,7 +37,7 @@ impl ProcessMonitor {
     pub fn get_all_processes(&self) -> Vec<String> {
         let mut processes: Vec<_> = self.system.processes()
             .values()
-            .map(|p| p.name().to_string())
+            .map(|p| p.name().to_string_lossy().into_owned())
             .collect();
         processes.sort();
         processes.dedup();
@@ -57,7 +57,7 @@ impl ProcessMonitor {
     pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
         let processes: Vec<_> = self.system.processes()
             .values()
-            .filter(|p| p.name() == process_name)
+            .filter(|p| p.name().to_string_lossy() == process_name)
             .collect();
 
         if processes.is_empty() {
@@ -124,7 +124,7 @@ impl ProcessMonitor {
                     .unwrap_or(false)
             })
             .map(|p| ProcessInfo {
-                name: p.name().to_string(),
+                name: p.name().to_string_lossy().into_owned(),
                 pid: p.pid(),
                 cpu_usage: p.cpu_usage(),
                 memory_mb: p.memory() as f32 / 1024.0 / 1024.0,
@@ -139,7 +139,7 @@ impl ProcessMonitor {
     pub fn process_exists(&self, process_name: &str) -> bool {
         self.system.processes()
             .values()
-            .any(|p| p.name() == process_name)
+            .any(|p| p.name().to_string_lossy() == process_name)
     }
 
     /// Gets basic statistics for a process without requiring history
@@ -149,7 +149,7 @@ impl ProcessMonitor {
     pub fn get_basic_stats(&self, process_name: &str) -> Option<ProcessStats> {
         let processes: Vec<_> = self.system.processes()
             .values()
-            .filter(|p| p.name() == process_name)
+            .filter(|p| p.name().to_string_lossy() == process_name)
             .collect();
 
         if processes.is_empty() {
