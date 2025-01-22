@@ -2,7 +2,7 @@ on: [push, pull_request, workflow_dispatch]
 
 name: CI
 
-env:
+# env:
   # RUSTFLAGS: -D warnings
   # RUSTDOCFLAGS: -D warnings
 
