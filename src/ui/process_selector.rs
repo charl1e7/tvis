@@ -15,14 +15,16 @@ impl Default for ProcessSelector {
 }
 
 impl ProcessSelector {
-    pub fn show(&mut self, ui: &mut egui::Ui, monitor: &ProcessMonitor, monitored_processes: &mut Vec<String>) {
+    pub fn show(&mut self, ui: &mut egui::Ui, monitor: &ProcessMonitor, monitored_processes: &mut Vec<String>) -> Option<usize> {
         if !self.show {
             if ui.button("Add Process").clicked() {
                 self.show = true;
                 self.search.clear();
             }
-            return;
+            return None;
         }
+
+        let mut added_idx = None;
 
         egui::Window::new("Select Process")
             .collapsible(false)
@@ -54,6 +56,7 @@ impl ProcessSelector {
                                 if ui.button(&process_name).clicked() {
                                     if !monitored_processes.contains(&process_name) {
                                         monitored_processes.push(process_name);
+                                        added_idx = Some(monitored_processes.len() - 1);
                                     }
                                     self.show = false;
                                 }
@@ -61,5 +64,7 @@ impl ProcessSelector {
                         }
                     });
             });
+
+        added_idx
     }
 } 
