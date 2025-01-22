@@ -115,9 +115,20 @@ impl eframe::App for ProcessMonitorApp {
             for (i, process) in self.monitored_processes.iter().enumerate() {
                 ui.horizontal(|ui| {
                     let is_active = self.active_process_idx == Some(i);
-                    if ui.selectable_label(is_active, process).clicked() {
-                        self.active_process_idx = Some(i);
-                    }
+                    let display_name = if process.len() > 7 {
+                        format!("{}...", &process[..4])
+                    } else {
+                        let dots = ".".repeat(7 - process.len());
+                        format!("{}{}", process, dots)
+                    };
+                    
+                    ui.horizontal(|ui| {
+                        ui.set_min_width(100.0);
+                        if ui.selectable_label(is_active, display_name).clicked() {
+                            self.active_process_idx = Some(i);
+                        }
+                    });
+                    
                     if ui.small_button("❌").clicked() {
                         to_remove = Some(i);
                         if self.active_process_idx == Some(i) {
