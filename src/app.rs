@@ -185,7 +185,7 @@ impl eframe::App for ProcessMonitorApp {
             if let Some(idx) = self.active_process_idx {
                 if let Some(process_name) = self.monitored_processes.get(idx) {
                     if let Some(stats) = self.monitor.get_process_stats(process_name, &self.history, idx) {
-                        process_view::show_process(ui, process_name, &stats, &self.history, idx, &mut self.sort_type);
+                        process_view::show_process(ui, process_name, &stats, &self.history, idx, &mut self.sort_type, &self.settings);
                     } else {
                         ui.group(|ui| {
                             ui.heading(process_name);

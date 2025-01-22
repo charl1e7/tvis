@@ -1,5 +1,6 @@
 use crate::process::{ProcessStats, ProcessHistory, SortType, MetricType};
 use crate::components::stats_view;
+use crate::components::settings::Settings;
 
 pub fn show_process(
     ui: &mut egui::Ui,
@@ -8,6 +9,7 @@ pub fn show_process(
     history: &ProcessHistory,
     process_idx: usize,
     sort_type: &mut SortType,
+    settings: &Settings,
 ) {
     ui.group(|ui| {
         ui.heading(name);
@@ -31,7 +33,8 @@ pub fn show_process(
                 if let Some(cpu_history) = history.get_process_cpu_history(process_idx) {
                     if !cpu_history.is_empty() {
                         ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
-                        plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, 100.0);
+                        let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
+                        plot_metric(ui, format!("cpu_plot_{}", process_idx), 100.0, cpu_history, history.history_max_points, max_cpu * (1.0 + settings.graph_scale_margin));
                     }
                 }
             }
@@ -40,7 +43,7 @@ pub fn show_process(
                     if !memory_history.is_empty() {
                         ui.label(format!("Memory Usage: {:.1} MB", memory_history.last().unwrap()));
                         let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
-                        plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, max_memory * 1.1);
+                        plot_metric(ui, format!("memory_plot_{}", process_idx), 100.0, memory_history, history.history_max_points, max_memory * (1.0 + settings.graph_scale_margin));
                     }
                 }
             }
@@ -97,13 +100,14 @@ pub fn show_process(
                                     MetricType::Cpu => {
                                         ui.label(format!("Current CPU: {:.1}%", child.cpu_usage));
                                         if let Some(cpu_history) = history.get_child_cpu_history(&child.pid) {
+                                            let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(
                                                 ui,
                                                 format!("child_cpu_plot_{}_{}", process_idx, child.pid),
                                                 80.0,
                                                 cpu_history,
                                                 history.history_max_points,
-                                                100.0,
+                                                max_cpu * (1.0 + settings.graph_scale_margin),
                                             );
                                         }
                                     }
@@ -117,7 +121,7 @@ pub fn show_process(
                                                 80.0,
                                                 memory_history,
                                                 history.history_max_points,
-                                                max_memory * 1.1,
+                                                max_memory * (1.0 + settings.graph_scale_margin),
                                             );
                                         }
                                     }
