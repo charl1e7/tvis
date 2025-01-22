@@ -1,6 +1,7 @@
 use std::time::Duration;
 use crate::process::{ProcessMonitor, ProcessHistory};
 use crate::ui::{ProcessSelector, process_view};
+use crate::settings::{Settings, show_settings_window};
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -13,6 +14,7 @@ pub struct ProcessMonitorApp {
     monitored_processes: Vec<String>,
     #[serde(skip)]
     process_selector: ProcessSelector,
+    settings: Settings,
 }
 
 impl Default for ProcessMonitorApp {
@@ -22,6 +24,7 @@ impl Default for ProcessMonitorApp {
             history: ProcessHistory::new(100),
             monitored_processes: Vec::new(),
             process_selector: ProcessSelector::default(),
+            settings: Settings::default(),
         }
     }
 }
@@ -74,6 +77,7 @@ impl eframe::App for ProcessMonitorApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.settings.apply(ctx);
         self.update_metrics();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -86,8 +90,15 @@ impl eframe::App for ProcessMonitorApp {
                 
                 ui.add_space(16.0);
                 egui::widgets::global_theme_preference_buttons(ui);
+                
+                ui.add_space(16.0);
+                if ui.button("⚙").clicked() {
+                    self.settings.show();
+                }
             });
         });
+
+        show_settings_window(ctx, &mut self.settings);
 
         egui::SidePanel::left("process_list").show(ctx, |ui| {
             ui.heading("Monitored Processes");
