@@ -68,7 +68,7 @@ impl ProcessMonitorApp {
         let mut all_active_pids = Vec::with_capacity(
             self.monitored_processes.iter()
                 .map(|name| self.monitor.get_basic_stats(name)
-                    .map(|stats| stats.child_processes.len())
+                    .map(|stats| stats.processes.len())
                     .unwrap_or(0))
                 .sum()
         );
@@ -79,11 +79,10 @@ impl ProcessMonitorApp {
                 self.history.update_process_cpu(i, stats.current_cpu);
                 self.history.update_memory(i, stats.memory_mb);
                 
-                // Update child process histories
-                all_active_pids.extend(stats.child_processes.iter().map(|child| {
-                    self.history.update_child_cpu(child.pid, child.cpu_usage);
-                    self.history.update_child_memory(child.pid, child.memory_mb);
-                    child.pid
+                all_active_pids.extend(stats.processes.iter().map(|process| {
+                    self.history.update_child_cpu(process.pid, process.cpu_usage);
+                    self.history.update_child_memory(process.pid, process.memory_mb);
+                    process.pid
                 }));
             }
         }
