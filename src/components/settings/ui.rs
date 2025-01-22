@@ -1,4 +1,4 @@
-use super::Settings;
+use super::state::Settings;
 
 pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
     if !settings.is_visible() {

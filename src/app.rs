@@ -1,11 +1,22 @@
 use std::time::Duration;
 use crate::process::{ProcessMonitor, ProcessHistory, SortType};
-use crate::ui::{ProcessSelector, process_view};
-use crate::settings::{Settings, show_settings_window};
+use crate::components::process_selector::ProcessSelector;
+use crate::components::process_view;
+use crate::components::settings::{Settings, show_settings_window};
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
+/// ProcessMonitorApp is the main application state container that manages process monitoring
+/// and visualization.
+///
+/// # State Components
+/// * `monitor` - Handles real-time process monitoring
+/// * `history` - Stores historical data for processes and their children
+/// * `monitored_processes` - List of process names being monitored
+/// * `process_selector` - UI state for process selection
+/// * `settings` - Application settings
+/// * `active_process_idx` - Currently selected process index
+/// * `sort_type` - How child processes are sorted
 #[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
+#[serde(default)]
 pub struct ProcessMonitorApp {
     #[serde(skip)]
     monitor: ProcessMonitor,
@@ -34,20 +45,23 @@ impl Default for ProcessMonitorApp {
 }
 
 impl ProcessMonitorApp {
-    /// Called once before the first frame.
+    /// Creates a new ProcessMonitorApp instance.
+    /// Attempts to load previous state if available.
+    ///
+    /// # Arguments
+    /// * `cc` - Creation context from eframe
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_else(|| {
+                log::warn!("Failed to load previous app state, starting with default");
+                Default::default()
+            });
         }
 
         Default::default()
     }
 
+    /// Updates process metrics if enough time has passed since last update
     fn update_metrics(&mut self) {
         if !self.monitor.should_update() {
             return;
@@ -72,6 +86,24 @@ impl ProcessMonitorApp {
 
         // Cleanup old child histories once at the end
         self.history.cleanup_child_histories(&all_active_pids);
+    }
+
+    /// Removes a process from monitoring and updates related state
+    ///
+    /// # Arguments
+    /// * `idx` - Index of the process to remove
+    fn remove_process(&mut self, idx: usize) {
+        self.monitored_processes.remove(idx);
+        self.history.remove_process(idx);
+        
+        // Adjust active_process_idx if needed
+        if let Some(active_idx) = self.active_process_idx {
+            if active_idx > idx {
+                self.active_process_idx = Some(active_idx - 1);
+            } else if active_idx == idx {
+                self.active_process_idx = None;
+            }
+        }
     }
 }
 
@@ -143,16 +175,7 @@ impl eframe::App for ProcessMonitorApp {
             }
             
             if let Some(idx) = to_remove {
-                self.monitored_processes.remove(idx);
-                self.history.remove_process(idx);
-                // Adjust active_process_idx if needed
-                if let Some(active_idx) = self.active_process_idx {
-                    if active_idx > idx {
-                        self.active_process_idx = Some(active_idx - 1);
-                    } else if active_idx == idx {
-                        self.active_process_idx = None;
-                    }
-                }
+                self.remove_process(idx);
             }
         });
 

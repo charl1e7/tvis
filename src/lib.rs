@@ -2,7 +2,6 @@
 
 pub mod app;
 pub mod process;
-pub mod ui;
-pub mod settings;
+pub mod components;
 
 pub use app::ProcessMonitorApp;

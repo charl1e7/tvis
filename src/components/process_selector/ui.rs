@@ -1,18 +1,5 @@
+use super::state::ProcessSelector;
 use crate::process::ProcessMonitor;
-
-pub struct ProcessSelector {
-    pub show: bool,
-    pub search: String,
-}
-
-impl Default for ProcessSelector {
-    fn default() -> Self {
-        Self {
-            show: false,
-            search: String::new(),
-        }
-    }
-}
 
 impl ProcessSelector {
     pub fn show(&mut self, ui: &mut egui::Ui, monitor: &ProcessMonitor, monitored_processes: &mut Vec<String>) -> Option<usize> {
