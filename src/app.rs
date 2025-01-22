@@ -127,9 +127,6 @@ impl eframe::App for ProcessMonitorApp {
                 });
                 
                 ui.add_space(16.0);
-                egui::widgets::global_theme_preference_buttons(ui);
-                
-                ui.add_space(16.0);
                 if ui.button("⚙").clicked() {
                     self.settings.show();
                 }

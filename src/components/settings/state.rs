@@ -42,4 +42,13 @@ impl Settings {
         ].into();
         ctx.set_style(style);
     }
+
+    pub fn toggle_theme(&self, ctx: &egui::Context) {
+        let visuals = if ctx.style().visuals.dark_mode {
+            egui::Visuals::light()
+        } else {
+            egui::Visuals::dark()
+        };
+        ctx.set_visuals(visuals);
+    }
 } 

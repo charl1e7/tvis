@@ -27,6 +27,16 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
 
             ui.separator();
 
+            ui.horizontal(|ui| {
+                ui.label("Theme:");
+                let dark_mode = ui.ctx().style().visuals.dark_mode;
+                if ui.button(if dark_mode { "🌞 Light" } else { "🌙 Dark" }).clicked() {
+                    settings.toggle_theme(ctx);
+                }
+            });
+
+            ui.separator();
+
             if ui.button("Close").clicked() {
                 settings.hide();
             }
