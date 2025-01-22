@@ -53,6 +53,8 @@ impl ProcessMonitorApp {
 
         self.monitor.update();
 
+        let mut all_active_pids = Vec::new();
+
         // Update histories for monitored processes
         for (i, process_name) in self.monitored_processes.iter().enumerate() {
             if let Some(stats) = self.monitor.get_process_stats(process_name) {
@@ -61,13 +63,13 @@ impl ProcessMonitorApp {
                 // Update child process histories
                 for child in &stats.child_processes {
                     self.history.update_child_cpu(child.pid, child.cpu_usage);
+                    all_active_pids.push(child.pid);
                 }
-
-                // Cleanup old child histories
-                let active_pids: Vec<_> = stats.child_processes.iter().map(|p| p.pid).collect();
-                self.history.cleanup_child_histories(&active_pids);
             }
         }
+
+        // Cleanup old child histories once at the end
+        self.history.cleanup_child_histories(&all_active_pids);
     }
 }
 
