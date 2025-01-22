@@ -181,4 +181,15 @@ impl ProcessHistory {
             self.histories.remove(idx);
         }
     }
+
+    /// Clears history data for a process and its children
+    pub fn clear_process(&mut self, idx: usize) {
+        if idx < self.histories.len() {
+            // Clear main process data
+            self.histories[idx] = ProcessMetrics::new(self.history_max_points);
+            
+            // Clear child processes data
+            self.child_histories.clear();
+        }
+    }
 } 
