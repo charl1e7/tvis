@@ -11,7 +11,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             scale: 1.35,
-            font_size: 16.0,
+            font_size: 15.0,
             graph_scale_margin: 0.35, // 5% by default
             show_window: false,
         }
