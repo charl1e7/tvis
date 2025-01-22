@@ -1,25 +1,32 @@
+use std::time::Duration;
+use crate::process::{ProcessMonitor, ProcessHistory};
+use crate::ui::{ProcessSelector, process_view};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+pub struct ProcessMonitorApp {
+    #[serde(skip)]
+    monitor: ProcessMonitor,
+    #[serde(skip)]
+    history: ProcessHistory,
+    monitored_processes: Vec<String>,
+    #[serde(skip)]
+    process_selector: ProcessSelector,
 }
 
-impl Default for TemplateApp {
+impl Default for ProcessMonitorApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            monitor: ProcessMonitor::new(Duration::from_millis(1000)),
+            history: ProcessHistory::new(100),
+            monitored_processes: Vec::new(),
+            process_selector: ProcessSelector::default(),
         }
     }
 }
 
-impl TemplateApp {
+impl ProcessMonitorApp {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
@@ -33,9 +40,33 @@ impl TemplateApp {
 
         Default::default()
     }
+
+    fn update_metrics(&mut self) {
+        if !self.monitor.should_update() {
+            return;
+        }
+
+        self.monitor.update();
+
+        // Update histories for monitored processes
+        for (i, process_name) in self.monitored_processes.iter().enumerate() {
+            if let Some(stats) = self.monitor.get_process_stats(process_name) {
+                self.history.update_process_cpu(i, stats.current_cpu);
+                
+                // Update child process histories
+                for child in &stats.child_processes {
+                    self.history.update_child_cpu(child.pid, child.cpu_usage);
+                }
+
+                // Cleanup old child histories
+                let active_pids: Vec<_> = stats.child_processes.iter().map(|p| p.pid).collect();
+                self.history.cleanup_child_histories(&active_pids);
+            }
+        }
+    }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for ProcessMonitorApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -43,54 +74,62 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        self.update_metrics();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-
+                ui.menu_button("File", |ui| {
+                    if ui.button("Quit").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+                
+                ui.add_space(16.0);
                 egui::widgets::global_theme_preference_buttons(ui);
             });
         });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
+        egui::SidePanel::left("process_list").show(ctx, |ui| {
+            ui.heading("Monitored Processes");
+            
+            // Process selector
+            self.process_selector.show(ui, &self.monitor, &mut self.monitored_processes);
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
+            // Process list with remove buttons
+            let mut to_remove = None;
+            for (i, process) in self.monitored_processes.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(process);
+                    if ui.small_button("❌").clicked() {
+                        to_remove = Some(i);
+                    }
+                });
             }
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
+            
+            if let Some(idx) = to_remove {
+                self.monitored_processes.remove(idx);
+                self.history.remove_process(idx);
+            }
         });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("Process Monitor");
+
+            // Display process information
+            for (i, process_name) in self.monitored_processes.iter().enumerate() {
+                if let Some(stats) = self.monitor.get_process_stats(process_name) {
+                    process_view::show_process(ui, process_name, &stats, &self.history, i);
+                } else {
+                    ui.group(|ui| {
+                        ui.heading(process_name);
+                        ui.label("Process not found");
+                    });
+                }
+            }
+        });
+
+        // Request repaint
+        ctx.request_repaint();
     }
 }
 
