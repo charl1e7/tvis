@@ -33,6 +33,8 @@ pub struct CircularBuffer {
     data: Vec<f32>,
     position: usize,
     peak_value: f32,
+    sum: f32,  // Track sum for efficient average calculation
+    len: usize, // Track actual number of values
 }
 
 impl CircularBuffer {
@@ -42,17 +44,30 @@ impl CircularBuffer {
             data: vec![0.0; size],
             position: 0,
             peak_value: 0.0,
+            sum: 0.0,
+            len: 0,
         }
     }
 
     /// Adds a new value to the buffer
     fn push(&mut self, value: f32) {
+        // Update sum: remove old value if we're overwriting, add new value
+        if self.len == self.data.len() {
+            self.sum -= self.data[self.position];
+        } else {
+            self.len += 1;
+        }
+        self.sum += value;
+
+        // Update data
         self.data[self.position] = value;
         self.position = (self.position + 1) % self.data.len();
-        self.peak_value = self.peak_value.max(value);
         
-        // Recalculate peak if we overwrote the previous peak
-        if self.peak_value == self.data[self.position] {
+        // Update peak value
+        if value > self.peak_value {
+            self.peak_value = value;
+        } else if self.peak_value == self.data[self.position] {
+            // Only recalculate peak if we overwrote the previous peak
             self.peak_value = self.data.iter().copied().fold(0.0, f32::max);
         }
     }
@@ -67,7 +82,7 @@ impl CircularBuffer {
     /// with newest values at the end
     fn as_slice(&self) -> Vec<f32> {
         let (first, second) = self.as_slices();
-        let mut result = Vec::with_capacity(self.data.len());
+        let mut result = Vec::with_capacity(self.len);
         result.extend_from_slice(first);
         result.extend_from_slice(second);
         result
@@ -84,6 +99,14 @@ impl CircularBuffer {
             self.data[self.data.len() - 1]
         } else {
             self.data[self.position - 1]
+        }
+    }
+
+    fn average(&self) -> f32 {
+        if self.len == 0 {
+            0.0
+        } else {
+            self.sum / self.len as f32
         }
     }
 }

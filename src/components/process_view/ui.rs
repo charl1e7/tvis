@@ -1,10 +1,6 @@
 use crate::process::{ProcessStats, ProcessHistory, SortType, MetricType};
 use crate::components::stats_view;
 use crate::components::settings::Settings;
-use std::sync::Mutex;
-use once_cell::sync::Lazy;
-
-static POINTS_BUFFER: Lazy<Mutex<Vec<[f64; 2]>>> = Lazy::new(|| Mutex::new(Vec::with_capacity(1000)));
 
 pub fn show_process(
     ui: &mut egui::Ui,
@@ -184,16 +180,10 @@ fn plot_metric(ui: &mut egui::Ui, id: impl std::hash::Hash, height: f32, history
 
     plot.show(ui, |plot_ui| {
         let start_x = (max_points - history.len()) as f64;
+        let points: Vec<[f64; 2]> = history.iter().enumerate()
+            .map(|(i, &y)| [start_x + i as f64, y as f64])
+            .collect();
         
-        // Reuse points buffer
-        let mut points = POINTS_BUFFER.lock().unwrap();
-        points.clear();
-        points.reserve(history.len());
-        
-        for i in 0..history.len() {
-            points.push([start_x + i as f64, history[i] as f64]);
-        }
-        
-        plot_ui.line(egui_plot::Line::new(egui_plot::PlotPoints::from(points.to_vec())).width(2.0));
+        plot_ui.line(egui_plot::Line::new(points).width(2.0));
     });
 } 
