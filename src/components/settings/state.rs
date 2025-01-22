@@ -14,9 +14,9 @@ impl Default for Settings {
         Self {
             scale: 1.35,
             font_size: 15.0,
-            graph_scale_margin: 0.35, // 5% by default
-            update_interval_ms: 1000, // 1 second by default
-            history_length: 100,  // Default 100 points
+            graph_scale_margin: 0.35, 
+            update_interval_ms: 1000, 
+            history_length: 100,  
             show_window: false,
         }
     }

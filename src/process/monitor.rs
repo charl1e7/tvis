@@ -10,7 +10,6 @@ pub struct ProcessMonitor {
 }
 
 impl ProcessMonitor {
-    /// Creates a new ProcessMonitor with the specified update interval
     pub fn new(update_interval: Duration) -> Self {
         Self {
             system: System::new(),
@@ -19,28 +18,23 @@ impl ProcessMonitor {
         }
     }
 
-    /// Gets the current update interval
     pub fn update_interval(&self) -> Duration {
         self.update_interval
     }
 
-    /// Sets a new update interval
     pub fn set_update_interval(&mut self, interval: Duration) {
         self.update_interval = interval;
     }
 
-    /// Checks if enough time has passed for the next update
     pub fn should_update(&self) -> bool {
         self.last_update.elapsed() >= self.update_interval
     }
 
-    /// Refreshes system information
     pub fn update(&mut self) {
         self.system.refresh_all();
         self.last_update = Instant::now();
     }
 
-    /// Returns a sorted list of all process names in the system
     pub fn get_all_processes(&self) -> Vec<String> {
         let mut processes: Vec<_> = self.system.processes()
             .values()
@@ -51,7 +45,6 @@ impl ProcessMonitor {
         processes
     }
 
-    /// Gets detailed statistics for a process and its children
     pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
         // Collect all processes with this name
         let processes: Vec<_> = self.system.processes()
@@ -138,7 +131,6 @@ impl ProcessMonitor {
         })
     }
 
-    /// Gets child processes for the given parent processes
     fn get_child_processes(&self, parent_processes: &[&Process]) -> Vec<ProcessInfo> {
         let parent_pids: Vec<_> = parent_processes.iter()
             .map(|p| p.pid())
@@ -160,7 +152,6 @@ impl ProcessMonitor {
             .collect()
     }
 
-    /// Checks if a process exists in the system
     pub fn process_exists(&self, process_name: &str) -> bool {
         self.system.processes()
             .values()
@@ -198,16 +189,16 @@ impl ProcessMonitor {
 
         Some(ProcessStats {
             current_cpu,
-            avg_cpu: current_cpu, // No history available, use current
-            peak_cpu: current_cpu, // No history available, use current
+            avg_cpu: current_cpu, 
+            peak_cpu: current_cpu, 
             memory_mb,
-            peak_memory_mb: memory_mb, // No history available, use current
+            peak_memory_mb: memory_mb, 
             child_processes,
-            children_avg_cpu: children_current_cpu, // No history available, use current
+            children_avg_cpu: children_current_cpu, 
             children_current_cpu,
-            children_peak_cpu: children_current_cpu, // No history available, use current
+            children_peak_cpu: children_current_cpu, 
             children_memory_mb,
-            children_peak_memory_mb: children_memory_mb, // No history available, use current
+            children_peak_memory_mb: children_memory_mb, 
         })
     }
 } 

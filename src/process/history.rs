@@ -4,9 +4,9 @@ use sysinfo::Pid;
 /// Stores historical data for processes and their children
 #[derive(Default)]
 pub struct ProcessHistory {
-    /// CPU and memory history for each monitored process
+    /// for each monitored process
     histories: Vec<ProcessMetrics>,
-    /// CPU and memory history for child processes
+    /// for child processes
     child_histories: HashMap<Pid, ProcessMetrics>,
     /// Maximum number of data points to store in history
     pub history_max_points: usize,
@@ -51,7 +51,6 @@ impl CircularBuffer {
 
     /// Adds a new value to the buffer
     fn push(&mut self, value: f32) {
-        // Update sum: remove old value if we're overwriting, add new value
         if self.len == self.data.len() {
             self.sum -= self.data[self.position];
         } else {
@@ -59,15 +58,12 @@ impl CircularBuffer {
         }
         self.sum += value;
 
-        // Update data
         self.data[self.position] = value;
         self.position = (self.position + 1) % self.data.len();
         
-        // Update peak value
         if value > self.peak_value {
             self.peak_value = value;
         } else if self.peak_value == self.data[self.position] {
-            // Only recalculate peak if we overwrote the previous peak
             self.peak_value = self.data.iter().copied().fold(0.0, f32::max);
         }
     }
@@ -112,7 +108,6 @@ impl CircularBuffer {
 }
 
 impl ProcessHistory {
-    /// Creates a new ProcessHistory with the specified maximum history size
     pub fn new(max_points: usize) -> Self {
         Self {
             histories: Vec::new(),
@@ -121,7 +116,6 @@ impl ProcessHistory {
         }
     }
 
-    /// Updates CPU usage history for a monitored process
     pub fn update_process_cpu(&mut self, process_idx: usize, cpu_usage: f32) {
         if process_idx >= self.histories.len() {
             self.histories.resize_with(process_idx + 1, || ProcessMetrics::new(self.history_max_points));
@@ -129,7 +123,6 @@ impl ProcessHistory {
         self.histories[process_idx].cpu.push(cpu_usage);
     }
 
-    /// Updates memory usage history for a monitored process
     pub fn update_memory(&mut self, process_idx: usize, memory_mb: f32) {
         if process_idx >= self.histories.len() {
             self.histories.resize_with(process_idx + 1, || ProcessMetrics::new(self.history_max_points));
@@ -137,7 +130,6 @@ impl ProcessHistory {
         self.histories[process_idx].memory.push(memory_mb);
     }
 
-    /// Updates CPU usage history for a child process
     pub fn update_child_cpu(&mut self, pid: Pid, cpu_usage: f32) {
         self.child_histories
             .entry(pid)
@@ -145,7 +137,6 @@ impl ProcessHistory {
             .cpu.push(cpu_usage);
     }
 
-    /// Updates memory usage history for a child process
     pub fn update_child_memory(&mut self, pid: Pid, memory_mb: f32) {
         self.child_histories
             .entry(pid)
@@ -153,59 +144,48 @@ impl ProcessHistory {
             .memory.push(memory_mb);
     }
 
-    /// Gets CPU usage history for a monitored process
     pub fn get_process_cpu_history(&self, idx: usize) -> Option<Vec<f32>> {
         self.histories.get(idx).map(|h| h.cpu.as_slice())
     }
 
-    /// Gets CPU usage history for a child process
     pub fn get_child_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
         self.child_histories.get(pid).map(|h| h.cpu.as_slice())
     }
 
-    /// Gets memory usage history for a monitored process
     pub fn get_memory_history(&self, idx: usize) -> Option<Vec<f32>> {
         self.histories.get(idx).map(|h| h.memory.as_slice())
     }
 
-    /// Gets memory usage history for a child process
     pub fn get_child_memory_history(&self, pid: &Pid) -> Option<Vec<f32>> {
         self.child_histories.get(pid).map(|h| h.memory.as_slice())
     }
 
-    /// Gets the last CPU value for a monitored process
     pub fn get_last_cpu(&self, idx: usize) -> Option<f32> {
         self.histories.get(idx).map(|h| h.cpu.last_value())
     }
 
-    /// Gets the last memory value for a monitored process
     pub fn get_last_memory(&self, idx: usize) -> Option<f32> {
         self.histories.get(idx).map(|h| h.memory.last_value())
     }
 
-    /// Gets the peak CPU value for a monitored process
     pub fn get_peak_cpu(&self, idx: usize) -> Option<f32> {
         self.histories.get(idx).map(|h| h.cpu.max_value())
     }
 
-    /// Gets the peak memory value for a monitored process
     pub fn get_peak_memory(&self, idx: usize) -> Option<f32> {
         self.histories.get(idx).map(|h| h.memory.max_value())
     }
 
-    /// Removes history entries for child processes that are no longer active
     pub fn cleanup_child_histories(&mut self, active_pids: &[Pid]) {
         self.child_histories.retain(|pid, _| active_pids.contains(pid));
     }
 
-    /// Removes history for a monitored process
     pub fn remove_process(&mut self, idx: usize) {
         if idx < self.histories.len() {
             self.histories.remove(idx);
         }
     }
 
-    /// Clears history data for a process and its children
     pub fn clear_process(&mut self, idx: usize) {
         if idx < self.histories.len() {
             // Clear main process data

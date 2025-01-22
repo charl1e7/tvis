@@ -4,17 +4,6 @@ use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view;
 use crate::components::settings::{Settings, show_settings_window};
 
-/// ProcessMonitorApp is the main application state container that manages process monitoring
-/// and visualization.
-///
-/// # State Components
-/// * `monitor` - Handles real-time process monitoring
-/// * `history` - Stores historical data for processes and their children
-/// * `monitored_processes` - List of process names being monitored
-/// * `process_selector` - UI state for process selection
-/// * `settings` - Application settings
-/// * `active_process_idx` - Currently selected process index
-/// * `sort_type` - How child processes are sorted
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct ProcessMonitorApp {
@@ -46,11 +35,6 @@ impl Default for ProcessMonitorApp {
 }
 
 impl ProcessMonitorApp {
-    /// Creates a new ProcessMonitorApp instance.
-    /// Attempts to load previous state if available.
-    ///
-    /// # Arguments
-    /// * `cc` - Creation context from eframe
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
             let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
@@ -62,7 +46,6 @@ impl ProcessMonitorApp {
         }
     }
 
-    /// Updates process metrics if enough time has passed since last update
     fn update_metrics(&mut self) {
         // Update monitor interval if it changed in settings
         let current_interval = Duration::from_millis(self.settings.update_interval_ms);
@@ -109,10 +92,6 @@ impl ProcessMonitorApp {
         self.history.cleanup_child_histories(&all_active_pids);
     }
 
-    /// Removes a process from monitoring and updates related state
-    ///
-    /// # Arguments
-    /// * `idx` - Index of the process to remove
     fn remove_process(&mut self, idx: usize) {
         self.monitored_processes.remove(idx);
         self.history.remove_process(idx);
@@ -141,7 +120,7 @@ impl eframe::App for ProcessMonitorApp {
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
+                ui.menu_button("Menu", |ui| {
                     if ui.button("Quit").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -223,7 +202,7 @@ impl eframe::App for ProcessMonitorApp {
             }
         });
 
-        // Request repaint
+        // Change mode rendering
         ctx.request_repaint();
     }
 }
