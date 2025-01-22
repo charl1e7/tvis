@@ -5,7 +5,9 @@ name: CI
 # env:
   # RUSTFLAGS: -D warnings
   # RUSTDOCFLAGS: -D warnings
-
+permissions:
+  contents: write
+  
 jobs:
 #  check:
 #    name: Check
