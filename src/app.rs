@@ -80,15 +80,17 @@ impl ProcessMonitorApp {
                 self.history.update_memory(i, stats.memory_mb);
                 
                 all_active_pids.extend(stats.processes.iter().map(|process| {
-                    self.history.update_child_cpu(process.pid, process.cpu_usage);
-                    self.history.update_child_memory(process.pid, process.memory_mb);
+                    self.history.update_child_cpu(i, process.pid, process.cpu_usage);
+                    self.history.update_child_memory(i, process.pid, process.memory_mb);
                     process.pid
                 }));
             }
         }
 
-        // Cleanup old child histories once at the end
-        self.history.cleanup_child_histories(&all_active_pids);
+        // Cleanup old child histories
+        for i in 0..self.monitored_processes.len() {
+            self.history.cleanup_child_histories(i, &all_active_pids);
+        }
     }
 
     fn remove_process(&mut self, idx: usize) {

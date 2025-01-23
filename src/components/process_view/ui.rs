@@ -69,10 +69,10 @@ pub fn show_process(
                 match state.sort_type {
                     SortType::AvgCpu => {
                         processes.sort_by(|&a, &b| {
-                            let a_avg = state.history.get_child_cpu_history(&a.pid)
+                            let a_avg = state.history.get_child_cpu_history(state.process_idx, &a.pid)
                                 .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                 .unwrap_or(0.0);
-                            let b_avg = state.history.get_child_cpu_history(&b.pid)
+                            let b_avg = state.history.get_child_cpu_history(state.process_idx, &b.pid)
                                 .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                 .unwrap_or(0.0);
                             b_avg.partial_cmp(&a_avg).unwrap_or(std::cmp::Ordering::Equal)
@@ -94,7 +94,7 @@ pub fn show_process(
                     for process in &processes {
                         let process_id = ui.make_persistent_id(format!("process_{}", process.pid));
                         let response = ui.group(|ui| {
-                            let avg_cpu = state.history.get_child_cpu_history(&process.pid)
+                            let avg_cpu = state.history.get_child_cpu_history(state.process_idx, &process.pid)
                                 .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                 .unwrap_or(0.0);
                             
@@ -117,11 +117,11 @@ pub fn show_process(
                                     ui.horizontal(|ui| {
                                         ui.label(format!("Current CPU: {:.1}%", process.cpu_usage));
                                         ui.label(" | ");
-                                        if let Some(cpu_history) = state.history.get_child_cpu_history(&process.pid) {
+                                        if let Some(cpu_history) = state.history.get_child_cpu_history(state.process_idx, &process.pid) {
                                             ui.label(format!("Peak: {:.1}%", cpu_history.iter().copied().fold(0.0, f32::max)));
                                         }
                                     });
-                                    if let Some(cpu_history) = state.history.get_child_cpu_history(&process.pid) {
+                                    if let Some(cpu_history) = state.history.get_child_cpu_history(state.process_idx, &process.pid) {
                                         let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
                                         plot_metric(
                                             ui,
@@ -137,11 +137,11 @@ pub fn show_process(
                                     ui.horizontal(|ui| {
                                         ui.label(format!("Memory Usage: {:.1} MB", process.memory_mb));
                                         ui.label(" | ");
-                                        if let Some(memory_history) = state.history.get_child_memory_history(&process.pid) {
+                                        if let Some(memory_history) = state.history.get_child_memory_history(state.process_idx, &process.pid) {
                                             ui.label(format!("Peak: {:.1} MB", memory_history.iter().copied().fold(0.0, f32::max)));
                                         }
                                     });
-                                    if let Some(memory_history) = state.history.get_child_memory_history(&process.pid) {
+                                    if let Some(memory_history) = state.history.get_child_memory_history(state.process_idx, &process.pid) {
                                         let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
                                         plot_metric(
                                             ui,
