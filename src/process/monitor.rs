@@ -3,7 +3,6 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use sysinfo::{Process, System};
 
-/// Monitors system processes and provides real-time statistics
 pub struct ProcessMonitor {
     system: System,
     last_update: Instant,
@@ -63,26 +62,35 @@ impl ProcessMonitor {
         processes
     }
 
-    fn collect_processes(&self, identifier: &ProcessIdentifier) -> Option<Vec<ProcessInfo>> {
+    fn collect_processes(&self, identifier: &ProcessIdentifier) -> Option<(Vec<ProcessInfo>, usize)> {
         match identifier {
             ProcessIdentifier::Pid(pid) => {
                 let mut all_processes = Vec::new();
                 let mut seen_pids = HashSet::new();
+                let mut thread_count = 0;
 
-                // Add the main process
                 if let Some(process) = self.system.processes().get(pid) {
                     seen_pids.insert(*pid);
-                    all_processes.push(self.collect_process_info(process));
+                    let info = self.collect_process_info(process);
+                    if info.is_thread {
+                        thread_count += 1;
+                    } else {
+                        all_processes.push(info);
+                    }
 
-                    // Collect and add child processes
                     let child_pids = self.collect_child_pids(&[*pid], &mut seen_pids);
                     for child_pid in child_pids {
                         if let Some(process) = self.system.processes().get(&child_pid) {
-                            all_processes.push(self.collect_process_info(process));
+                            let info = self.collect_process_info(process);
+                            if info.is_thread {
+                                thread_count += 1;
+                            } else {
+                                all_processes.push(info);
+                            }
                         }
                     }
 
-                    Some(all_processes)
+                    Some((all_processes, thread_count))
                 } else {
                     None
                 }
@@ -90,6 +98,7 @@ impl ProcessMonitor {
             ProcessIdentifier::Name(name) => {
                 let mut all_processes = Vec::new();
                 let mut seen_pids = HashSet::new();
+                let mut thread_count = 0;
 
                 // Collect parent processes
                 let parent_pids: Vec<_> = self
@@ -104,23 +113,31 @@ impl ProcessMonitor {
                     return None;
                 }
 
-                // Add parent processes
                 for pid in &parent_pids {
                     if let Some(process) = self.system.processes().get(pid) {
                         seen_pids.insert(*pid);
-                        all_processes.push(self.collect_process_info(process));
+                        let info = self.collect_process_info(process);
+                        if info.is_thread {
+                            thread_count += 1;
+                        } else {
+                            all_processes.push(info);
+                        }
                     }
                 }
 
-                // Collect and add child processes
                 let child_pids = self.collect_child_pids(&parent_pids, &mut seen_pids);
                 for pid in child_pids {
                     if let Some(process) = self.system.processes().get(&pid) {
-                        all_processes.push(self.collect_process_info(process));
+                        let info = self.collect_process_info(process);
+                        if info.is_thread {
+                            thread_count += 1;
+                        } else {
+                            all_processes.push(info);
+                        }
                     }
                 }
 
-                Some(all_processes)
+                Some((all_processes, thread_count))
             }
         }
     }
@@ -146,6 +163,7 @@ impl ProcessMonitor {
             parent_pid: process.parent(),
             cpu_usage: process.cpu_usage(),
             memory_mb,
+            is_thread,
         }
     }
 
@@ -192,7 +210,7 @@ impl ProcessMonitor {
         history: &ProcessHistory,
         process_idx: usize,
     ) -> Option<ProcessStats> {
-        let processes = self.collect_processes(identifier)?;
+        let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
 
         let (peak_cpu, avg_cpu) = history
@@ -212,6 +230,7 @@ impl ProcessMonitor {
             memory_mb,
             peak_memory_mb: peak_memory,
             processes,
+            thread_count,
         })
     }
 
@@ -228,7 +247,7 @@ impl ProcessMonitor {
 
     /// Gets basic statistics for a process without requiring history
     pub fn get_basic_stats(&self, identifier: &ProcessIdentifier) -> Option<ProcessStats> {
-        let processes = self.collect_processes(identifier)?;
+        let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
 
         Some(ProcessStats {
@@ -238,6 +257,7 @@ impl ProcessMonitor {
             memory_mb,
             peak_memory_mb: memory_mb,
             processes,
+            thread_count,
         })
     }
 }

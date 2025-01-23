@@ -37,6 +37,7 @@ pub struct ProcessInfo {
     pub parent_pid: Option<sysinfo::Pid>,
     pub cpu_usage: f32,
     pub memory_mb: f32,
+    pub is_thread: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -71,4 +72,5 @@ pub struct ProcessStats {
     pub memory_mb: f32,
     pub peak_memory_mb: f32,
     pub processes: Vec<ProcessInfo>,
+    pub thread_count: usize,
 }

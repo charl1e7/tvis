@@ -11,6 +11,7 @@ pub fn show_process_stats(ui: &mut egui::Ui, stats: &ProcessStats) {
 
         ui.vertical(|ui| {
             ui.label(format!("Total Processes: {}", stats.processes.len()));
+            ui.label(format!("Total Threads: {}", stats.thread_count));
         });
     });
     ui.add_space(8.0);
