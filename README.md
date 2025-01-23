@@ -1,27 +1,46 @@
-# TVIS - Targeted Process Monitor
+# TVIS 
 
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
+[![Built with Rust](https://img.shields.io/badge/Built_with-Rust-orange.svg)](https://www.rust-lang.org/)
+[![Powered by egui](https://img.shields.io/badge/Powered_by-egui-purple.svg)](https://www.egui.rs/)
 
+A process monitoring tool that helps you track and analyze specific processes in real-time.
 
-A modern, efficient process monitoring tool built with Rust and egui.
+![TVIS screenshot](gitassets/screen1.png)
 
-![TVIS screenshot](screen.png)
 </div>
 
-## Features
+## ✨ Features
 
-- Real-time monitoring of specific processors with graphs
-- Track CPU and memory usage over time
-- Monitor parent and child processes
+- **Real-time Monitoring** - Track CPU and memory usage with live-updating graphs
+- **Customizable UI** - Adjust update intervals, history length, and visual settings
+- **Cross-platform** - Works on Windows, Linux, and macOS
 
-## Contributing
+## 🚀 Getting Started
 
-Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+### Installation
 
-## License
+#### Option 1: Download Binary 
+You can download the pre-built binary for your platform from the [Releases](https://github.com/charl1e7/tvis/releases) page.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE-MIT) file for details.
 
+#### Option 2: Build from Source
+If you prefer to build from source or need a specific configuration:
 
+```bash
+git clone https://github.com/charl1e7/tvis.git
+cd tvis
+cargo build --release
+
+# The binary will be available at ./target/release/
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! 
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
