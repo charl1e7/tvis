@@ -45,9 +45,4 @@ pub struct ProcessStats {
     pub memory_mb: f32,
     pub peak_memory_mb: f32,
     pub processes: Vec<ProcessInfo>,
-    pub children_avg_cpu: f32,
-    pub children_current_cpu: f32,
-    pub children_peak_cpu: f32,
-    pub children_memory_mb: f32,
-    pub children_peak_memory_mb: f32,
 } 

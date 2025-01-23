@@ -25,6 +25,22 @@ impl ProcessMetrics {
             memory: CircularBuffer::new(size),
         }
     }
+
+    fn update_cpu(&mut self, value: f32) {
+        self.cpu.push(value);
+    }
+
+    fn update_memory(&mut self, value: f32) {
+        self.memory.push(value);
+    }
+
+    fn get_cpu_history(&self) -> Vec<f32> {
+        self.cpu.as_slice()
+    }
+
+    fn get_memory_history(&self) -> Vec<f32> {
+        self.memory.as_slice()
+    }
 }
 
 /// A fixed-size circular buffer for storing historical data
@@ -116,48 +132,50 @@ impl ProcessHistory {
         }
     }
 
-    pub fn update_process_cpu(&mut self, process_idx: usize, cpu_usage: f32) {
+    fn ensure_process_exists(&mut self, process_idx: usize) {
         if process_idx >= self.histories.len() {
             self.histories.resize_with(process_idx + 1, || ProcessMetrics::new(self.history_max_points));
         }
-        self.histories[process_idx].cpu.push(cpu_usage);
+    }
+
+    pub fn update_process_cpu(&mut self, process_idx: usize, cpu_usage: f32) {
+        self.ensure_process_exists(process_idx);
+        self.histories[process_idx].update_cpu(cpu_usage);
     }
 
     pub fn update_memory(&mut self, process_idx: usize, memory_mb: f32) {
-        if process_idx >= self.histories.len() {
-            self.histories.resize_with(process_idx + 1, || ProcessMetrics::new(self.history_max_points));
-        }
-        self.histories[process_idx].memory.push(memory_mb);
+        self.ensure_process_exists(process_idx);
+        self.histories[process_idx].update_memory(memory_mb);
     }
 
     pub fn update_child_cpu(&mut self, pid: Pid, cpu_usage: f32) {
         self.child_histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_max_points))
-            .cpu.push(cpu_usage);
+            .update_cpu(cpu_usage);
     }
 
     pub fn update_child_memory(&mut self, pid: Pid, memory_mb: f32) {
         self.child_histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_max_points))
-            .memory.push(memory_mb);
+            .update_memory(memory_mb);
     }
 
     pub fn get_process_cpu_history(&self, idx: usize) -> Option<Vec<f32>> {
-        self.histories.get(idx).map(|h| h.cpu.as_slice())
+        self.histories.get(idx).map(|h| h.get_cpu_history())
     }
 
     pub fn get_child_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
-        self.child_histories.get(pid).map(|h| h.cpu.as_slice())
+        self.child_histories.get(pid).map(|h| h.get_cpu_history())
     }
 
     pub fn get_memory_history(&self, idx: usize) -> Option<Vec<f32>> {
-        self.histories.get(idx).map(|h| h.memory.as_slice())
+        self.histories.get(idx).map(|h| h.get_memory_history())
     }
 
     pub fn get_child_memory_history(&self, pid: &Pid) -> Option<Vec<f32>> {
-        self.child_histories.get(pid).map(|h| h.memory.as_slice())
+        self.child_histories.get(pid).map(|h| h.get_memory_history())
     }
 
     pub fn get_last_cpu(&self, idx: usize) -> Option<f32> {
