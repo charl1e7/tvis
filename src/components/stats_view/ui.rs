@@ -10,7 +10,8 @@ pub fn show_process_stats(ui: &mut egui::Ui, stats: &ProcessStats) {
         ui.add_space(32.0);
 
         ui.vertical(|ui| {
-            ui.label(format!("Total Processes: {}", stats.processes.len()));
+            let process_count = stats.processes.iter().filter(|p| !p.is_thread).count();
+            ui.label(format!("Total Processes: {}", process_count));
             ui.label(format!("Total Threads: {}", stats.thread_count));
         });
     });
