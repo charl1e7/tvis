@@ -1,4 +1,7 @@
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    tags:
+      - '*'
 
 name: CI
 
@@ -167,6 +170,6 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: tvis-${{ matrix.TARGET }}${{ matrix.EXTENSION }}
         asset_name: tvis-${{ matrix.TARGET }}${{ matrix.EXTENSION }}
-        tag: ${{ github.ref }}
-        prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        tag: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
         overwrite: true
