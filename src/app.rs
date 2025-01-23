@@ -132,7 +132,7 @@ impl eframe::App for ProcessMonitorApp {
                     self.settings.show();
                 }
                 ui.add_space(4.0);
-                if ui.button("🗑").on_hover_text("Clear current process data").clicked() {
+                if ui.button("⟲").on_hover_text("Clear current process data").clicked() {
                     if let Some(idx) = self.active_process_idx {
                         self.history.clear_process(idx);
                     }

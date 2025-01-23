@@ -87,7 +87,7 @@ pub fn show_process(
 
                 let scroll_area_id = ui.make_persistent_id("processes_scroll_area");
                 let scroll = egui::ScrollArea::vertical()
-                    .max_height(300.0)
+                    .max_height(500.0)
                     .id_source(scroll_area_id);
 
                 scroll.show(ui, |ui| {
