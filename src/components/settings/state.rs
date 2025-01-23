@@ -14,9 +14,9 @@ impl Default for Settings {
         Self {
             scale: 1.35,
             font_size: 15.0,
-            graph_scale_margin: 0.35, 
-            update_interval_ms: 1000, 
-            history_length: 100,  
+            graph_scale_margin: 0.35,
+            update_interval_ms: 1000,
+            history_length: 100,
             show_window: false,
         }
     }
@@ -37,15 +37,31 @@ impl Settings {
 
     pub fn apply(&self, ctx: &egui::Context) {
         ctx.set_pixels_per_point(self.scale);
-        
+
         let mut style = (*ctx.style()).clone();
         style.text_styles = [
-            (egui::TextStyle::Heading, egui::FontId::new(self.font_size + 4.0, egui::FontFamily::Proportional)),
-            (egui::TextStyle::Body, egui::FontId::new(self.font_size, egui::FontFamily::Proportional)),
-            (egui::TextStyle::Monospace, egui::FontId::new(self.font_size, egui::FontFamily::Monospace)),
-            (egui::TextStyle::Button, egui::FontId::new(self.font_size, egui::FontFamily::Proportional)),
-            (egui::TextStyle::Small, egui::FontId::new(self.font_size - 2.0, egui::FontFamily::Proportional)),
-        ].into();
+            (
+                egui::TextStyle::Heading,
+                egui::FontId::new(self.font_size + 4.0, egui::FontFamily::Proportional),
+            ),
+            (
+                egui::TextStyle::Body,
+                egui::FontId::new(self.font_size, egui::FontFamily::Proportional),
+            ),
+            (
+                egui::TextStyle::Monospace,
+                egui::FontId::new(self.font_size, egui::FontFamily::Monospace),
+            ),
+            (
+                egui::TextStyle::Button,
+                egui::FontId::new(self.font_size, egui::FontFamily::Proportional),
+            ),
+            (
+                egui::TextStyle::Small,
+                egui::FontId::new(self.font_size - 2.0, egui::FontFamily::Proportional),
+            ),
+        ]
+        .into();
         ctx.set_style(style);
     }
 
@@ -57,4 +73,4 @@ impl Settings {
         };
         ctx.set_visuals(visuals);
     }
-} 
+}

@@ -56,7 +56,7 @@ pub struct CircularBuffer {
     data: Vec<f32>,
     position: usize,
     peak_value: f32,
-    sum: f32,  // Track sum for efficient average calculation
+    sum: f32,   // Track sum for efficient average calculation
     len: usize, // Track actual number of values
 }
 
@@ -83,7 +83,7 @@ impl CircularBuffer {
 
         self.data[self.position] = value;
         self.position = (self.position + 1) % self.data.len();
-        
+
         if value > self.peak_value {
             self.peak_value = value;
         } else if self.peak_value == self.data[self.position] {
@@ -120,14 +120,6 @@ impl CircularBuffer {
             self.data[self.position - 1]
         }
     }
-
-    fn average(&self) -> f32 {
-        if self.len == 0 {
-            0.0
-        } else {
-            self.sum / self.len as f32
-        }
-    }
 }
 
 impl ProcessGroup {
@@ -149,7 +141,9 @@ impl ProcessHistory {
 
     fn ensure_process_exists(&mut self, process_idx: usize) {
         if process_idx >= self.histories.len() {
-            self.histories.resize_with(process_idx + 1, || ProcessGroup::new(self.history_max_points));
+            self.histories.resize_with(process_idx + 1, || {
+                ProcessGroup::new(self.history_max_points)
+            });
         }
     }
 
@@ -186,17 +180,21 @@ impl ProcessHistory {
     }
 
     pub fn get_child_cpu_history(&self, parent_idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories.get(parent_idx)
+        self.histories
+            .get(parent_idx)
             .and_then(|h| h.child_histories.get(pid))
             .map(|h| h.get_cpu_history())
     }
 
     pub fn get_memory_history(&self, idx: usize) -> Option<Vec<f32>> {
-        self.histories.get(idx).map(|h| h.metrics.get_memory_history())
+        self.histories
+            .get(idx)
+            .map(|h| h.metrics.get_memory_history())
     }
 
     pub fn get_child_memory_history(&self, parent_idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories.get(parent_idx)
+        self.histories
+            .get(parent_idx)
             .and_then(|h| h.child_histories.get(pid))
             .map(|h| h.get_memory_history())
     }
@@ -206,7 +204,9 @@ impl ProcessHistory {
     }
 
     pub fn get_last_memory(&self, idx: usize) -> Option<f32> {
-        self.histories.get(idx).map(|h| h.metrics.memory.last_value())
+        self.histories
+            .get(idx)
+            .map(|h| h.metrics.memory.last_value())
     }
 
     pub fn get_peak_cpu(&self, idx: usize) -> Option<f32> {
@@ -214,12 +214,16 @@ impl ProcessHistory {
     }
 
     pub fn get_peak_memory(&self, idx: usize) -> Option<f32> {
-        self.histories.get(idx).map(|h| h.metrics.memory.max_value())
+        self.histories
+            .get(idx)
+            .map(|h| h.metrics.memory.max_value())
     }
 
     pub fn cleanup_child_histories(&mut self, parent_idx: usize, active_pids: &[Pid]) {
         if let Some(group) = self.histories.get_mut(parent_idx) {
-            group.child_histories.retain(|pid, _| active_pids.contains(pid));
+            group
+                .child_histories
+                .retain(|pid, _| active_pids.contains(pid));
         }
     }
 
@@ -234,4 +238,4 @@ impl ProcessHistory {
             self.histories[idx] = ProcessGroup::new(self.history_max_points);
         }
     }
-} 
+}

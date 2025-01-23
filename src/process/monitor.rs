@@ -1,7 +1,7 @@
-use super::{ProcessInfo, ProcessStats, ProcessHistory};
-use sysinfo::{System, Process};
-use std::time::{Duration, Instant};
+use super::{ProcessHistory, ProcessInfo, ProcessStats};
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
+use sysinfo::{Process, System};
 
 /// Monitors system processes and provides real-time statistics
 pub struct ProcessMonitor {
@@ -37,7 +37,9 @@ impl ProcessMonitor {
     }
 
     pub fn get_all_processes(&self) -> Vec<String> {
-        let mut processes: Vec<_> = self.system.processes()
+        let mut processes: Vec<_> = self
+            .system
+            .processes()
             .values()
             .map(|p| p.name().to_string_lossy().into_owned())
             .collect();
@@ -56,9 +58,13 @@ impl ProcessMonitor {
         }
     }
 
-    fn collect_child_pids(&self, parent_pids: &[sysinfo::Pid], seen_pids: &mut HashSet<sysinfo::Pid>) -> Vec<sysinfo::Pid> {
+    fn collect_child_pids(
+        &self,
+        parent_pids: &[sysinfo::Pid],
+        seen_pids: &mut HashSet<sysinfo::Pid>,
+    ) -> Vec<sysinfo::Pid> {
         let mut child_pids = Vec::new();
-        
+
         for process in self.system.processes().values() {
             if let Some(parent_pid) = process.parent() {
                 if parent_pids.contains(&parent_pid) && !seen_pids.contains(&process.pid()) {
@@ -69,7 +75,7 @@ impl ProcessMonitor {
                 }
             }
         }
-        
+
         child_pids
     }
 
@@ -78,7 +84,9 @@ impl ProcessMonitor {
         let mut seen_pids = HashSet::new();
 
         // Collect parent processes
-        let parent_pids: Vec<_> = self.system.processes()
+        let parent_pids: Vec<_> = self
+            .system
+            .processes()
             .values()
             .filter(|p| p.name().to_string_lossy() == process_name)
             .map(|p| p.pid())
@@ -108,10 +116,9 @@ impl ProcessMonitor {
     }
 
     fn calculate_stats(processes: &[ProcessInfo]) -> (f32, f32) {
-        processes.iter()
-            .fold((0.0, 0.0), |(cpu, mem), p| {
-                (cpu + p.cpu_usage, mem + p.memory_mb)
-            })
+        processes.iter().fold((0.0, 0.0), |(cpu, mem), p| {
+            (cpu + p.cpu_usage, mem + p.memory_mb)
+        })
     }
 
     fn calculate_history_stats(history: &[f32]) -> (f32, f32) {
@@ -124,15 +131,22 @@ impl ProcessMonitor {
         (max, sum / history.len() as f32)
     }
 
-    pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
+    pub fn get_process_stats(
+        &self,
+        process_name: &str,
+        history: &ProcessHistory,
+        process_idx: usize,
+    ) -> Option<ProcessStats> {
         let processes = self.collect_processes(process_name)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
 
-        let (peak_cpu, avg_cpu) = history.get_process_cpu_history(process_idx)
+        let (peak_cpu, avg_cpu) = history
+            .get_process_cpu_history(process_idx)
             .map(|h| Self::calculate_history_stats(h.as_slice()))
             .unwrap_or((current_cpu, current_cpu));
 
-        let peak_memory = history.get_memory_history(process_idx)
+        let peak_memory = history
+            .get_memory_history(process_idx)
             .map(|h| h.iter().copied().fold(0.0, f32::max))
             .unwrap_or(memory_mb);
 
@@ -147,7 +161,8 @@ impl ProcessMonitor {
     }
 
     pub fn process_exists(&self, process_name: &str) -> bool {
-        self.system.processes()
+        self.system
+            .processes()
             .values()
             .any(|p| p.name().to_string_lossy() == process_name)
     }
@@ -166,4 +181,4 @@ impl ProcessMonitor {
             processes,
         })
     }
-} 
+}

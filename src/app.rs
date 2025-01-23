@@ -1,9 +1,8 @@
-use std::time::Duration;
-use crate::process::{ProcessMonitor, ProcessHistory, SortType, MetricType};
 use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view::{self, state::ProcessView};
-use crate::components::settings::{Settings, show_settings_window};
-use std::collections::HashSet;
+use crate::components::settings::{show_settings_window, Settings};
+use crate::process::{MetricType, ProcessHistory, ProcessMonitor, SortType};
+use std::time::Duration;
 use sysinfo::Pid;
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -73,11 +72,15 @@ impl ProcessMonitorApp {
 
         // Pre-allocate with expected capacity
         let mut all_active_pids = Vec::with_capacity(
-            self.monitored_processes.iter()
-                .map(|name| self.monitor.get_basic_stats(name)
-                    .map(|stats| stats.processes.len())
-                    .unwrap_or(0))
-                .sum()
+            self.monitored_processes
+                .iter()
+                .map(|name| {
+                    self.monitor
+                        .get_basic_stats(name)
+                        .map(|stats| stats.processes.len())
+                        .unwrap_or(0)
+                })
+                .sum(),
         );
 
         // Update histories for monitored processes
@@ -85,10 +88,12 @@ impl ProcessMonitorApp {
             if let Some(stats) = self.monitor.get_basic_stats(process_name) {
                 self.history.update_process_cpu(i, stats.current_cpu);
                 self.history.update_memory(i, stats.memory_mb);
-                
+
                 all_active_pids.extend(stats.processes.iter().map(|process| {
-                    self.history.update_child_cpu(i, process.pid, process.cpu_usage);
-                    self.history.update_child_memory(i, process.pid, process.memory_mb);
+                    self.history
+                        .update_child_cpu(i, process.pid, process.cpu_usage);
+                    self.history
+                        .update_child_memory(i, process.pid, process.memory_mb);
                     process.pid
                 }));
             }
@@ -103,7 +108,7 @@ impl ProcessMonitorApp {
     fn remove_process(&mut self, idx: usize) {
         self.monitored_processes.remove(idx);
         self.history.remove_process(idx);
-        
+
         // Adjust active_process_idx if needed
         if let Some(active_idx) = self.active_process_idx {
             if active_idx > idx {
@@ -133,13 +138,17 @@ impl eframe::App for ProcessMonitorApp {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
-                
+
                 ui.add_space(16.0);
                 if ui.button("⚙").clicked() {
                     self.settings.show();
                 }
                 ui.add_space(4.0);
-                if ui.button("⟲").on_hover_text("Clear current process data").clicked() {
+                if ui
+                    .button("⟲")
+                    .on_hover_text("Clear current process data")
+                    .clicked()
+                {
                     if let Some(idx) = self.active_process_idx {
                         self.history.clear_process(idx);
                     }
@@ -155,40 +164,43 @@ impl eframe::App for ProcessMonitorApp {
             .max_width(800.0)
             .default_width(200.0)
             .show(ctx, |ui| {
-            ui.heading("Monitored Processes");
-            ui.add_space(4.0);
-            
-            // Process selector
-            if let Some(added_idx) = self.process_selector.show(ui, &self.monitor, &mut self.monitored_processes) {
-                self.active_process_idx = Some(added_idx);
-            }
-            
-            // Process list with remove buttons
-            let mut to_remove = None;
-            for (i, process) in self.monitored_processes.iter().enumerate() {
-                ui.horizontal(|ui| {
-                    let is_active = self.active_process_idx == Some(i);
-                    
-                    let response = ui.selectable_label(is_active, process);
-                    if response.clicked() {
-                        self.active_process_idx = Some(i);
-                    }
-                    
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.small_button("❌").clicked() {
-                            to_remove = Some(i);
-                            if self.active_process_idx == Some(i) {
-                                self.active_process_idx = None;
-                            }
+                ui.heading("Monitored Processes");
+                ui.add_space(4.0);
+
+                // Process selector
+                if let Some(added_idx) =
+                    self.process_selector
+                        .show(ui, &self.monitor, &mut self.monitored_processes)
+                {
+                    self.active_process_idx = Some(added_idx);
+                }
+
+                // Process list with remove buttons
+                let mut to_remove = None;
+                for (i, process) in self.monitored_processes.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        let is_active = self.active_process_idx == Some(i);
+
+                        let response = ui.selectable_label(is_active, process);
+                        if response.clicked() {
+                            self.active_process_idx = Some(i);
                         }
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("❌").clicked() {
+                                to_remove = Some(i);
+                                if self.active_process_idx == Some(i) {
+                                    self.active_process_idx = None;
+                                }
+                            }
+                        });
                     });
-                });
-            }
-            
-            if let Some(idx) = to_remove {
-                self.remove_process(idx);
-            }
-        });
+                }
+
+                if let Some(idx) = to_remove {
+                    self.remove_process(idx);
+                }
+            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Process Monitor");
@@ -196,7 +208,10 @@ impl eframe::App for ProcessMonitorApp {
             // Display process information
             if let Some(idx) = self.active_process_idx {
                 if let Some(process_name) = self.monitored_processes.get(idx) {
-                    if let Some(stats) = self.monitor.get_process_stats(process_name, &self.history, idx) {
+                    if let Some(stats) =
+                        self.monitor
+                            .get_process_stats(process_name, &self.history, idx)
+                    {
                         let mut state = ProcessView {
                             stats,
                             history: &self.history,

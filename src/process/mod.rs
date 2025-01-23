@@ -1,8 +1,8 @@
-mod monitor;
 mod history;
+mod monitor;
 
-pub use monitor::*;
 pub use history::*;
+pub use monitor::*;
 
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
@@ -45,4 +45,4 @@ pub struct ProcessStats {
     pub memory_mb: f32,
     pub peak_memory_mb: f32,
     pub processes: Vec<ProcessInfo>,
-} 
+}

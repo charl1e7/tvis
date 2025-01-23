@@ -2,7 +2,12 @@ use super::state::ProcessSelector;
 use crate::process::ProcessMonitor;
 
 impl ProcessSelector {
-    pub fn show(&mut self, ui: &mut egui::Ui, monitor: &ProcessMonitor, monitored_processes: &mut Vec<String>) -> Option<usize> {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        monitor: &ProcessMonitor,
+        monitored_processes: &mut Vec<String>,
+    ) -> Option<usize> {
         if !self.show {
             if ui.button("Add Process").clicked() {
                 self.show = true;
@@ -39,7 +44,9 @@ impl ProcessSelector {
                         let processes = monitor.get_all_processes();
 
                         for process_name in processes {
-                            if search_term.is_empty() || process_name.to_lowercase().contains(&search_term) {
+                            if search_term.is_empty()
+                                || process_name.to_lowercase().contains(&search_term)
+                            {
                                 if ui.button(&process_name).clicked() {
                                     if !monitored_processes.contains(&process_name) {
                                         monitored_processes.push(process_name);
@@ -54,4 +61,4 @@ impl ProcessSelector {
 
         added_idx
     }
-} 
+}
