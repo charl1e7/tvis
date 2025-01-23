@@ -49,14 +49,22 @@ impl ProcessMonitor {
     }
 
     fn collect_process_info(&self, process: &Process) -> ProcessInfo {
-        let memory_mb = if process.thread_kind().is_some() {
+        let is_thread = process.thread_kind().is_some();
+        
+        let memory_mb = if is_thread {
             0.0
         } else {
             process.memory() as f32 / 1024.0 / 1024.0
         };
 
+        let name = if is_thread {
+            format!("{} (thread)", process.name().to_string_lossy())
+        } else {
+            process.name().to_string_lossy().into_owned()
+        };
+
         ProcessInfo {
-            name: process.name().to_string_lossy().into_owned(),
+            name,
             pid: process.pid(),
             parent_pid: process.parent(),
             cpu_usage: process.cpu_usage(),
