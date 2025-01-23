@@ -1,8 +1,11 @@
-use crate::process::{ProcessStats, ProcessHistory, SortType};
+use crate::process::{ProcessStats, ProcessHistory, SortType, MetricType};
+use sysinfo::Pid;
 
-pub struct ProcessView {
+pub struct ProcessView<'a> {
     pub stats: ProcessStats,
-    pub history: ProcessHistory,
+    pub history: &'a ProcessHistory,
     pub process_idx: usize,
     pub sort_type: SortType,
+    pub current_metric: MetricType,
+    pub scroll_to_pid: Option<Pid>,
 } 

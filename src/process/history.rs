@@ -13,6 +13,7 @@ pub struct ProcessHistory {
 }
 
 /// Stores CPU and memory metrics for a process
+#[derive(Default)]
 struct ProcessMetrics {
     cpu: CircularBuffer,
     memory: CircularBuffer,

@@ -1,7 +1,7 @@
 use std::time::Duration;
-use crate::process::{ProcessMonitor, ProcessHistory, SortType};
+use crate::process::{ProcessMonitor, ProcessHistory, SortType, MetricType};
 use crate::components::process_selector::ProcessSelector;
-use crate::components::process_view;
+use crate::components::process_view::{self, state::ProcessView};
 use crate::components::settings::{Settings, show_settings_window};
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -188,7 +188,16 @@ impl eframe::App for ProcessMonitorApp {
             if let Some(idx) = self.active_process_idx {
                 if let Some(process_name) = self.monitored_processes.get(idx) {
                     if let Some(stats) = self.monitor.get_process_stats(process_name, &self.history, idx) {
-                        process_view::show_process(ui, process_name, &stats, &self.history, idx, &mut self.sort_type, &self.settings);
+                        let mut state = ProcessView {
+                            stats,
+                            history: &self.history,
+                            process_idx: idx,
+                            sort_type: self.sort_type,
+                            current_metric: MetricType::Cpu,
+                            scroll_to_pid: None,
+                        };
+                        process_view::show_process(ui, process_name, &mut state, &self.settings);
+                        self.sort_type = state.sort_type;
                     } else {
                         ui.group(|ui| {
                             ui.heading(process_name);
