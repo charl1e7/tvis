@@ -7,5 +7,5 @@ pub struct ProcessView<'a> {
     pub process_idx: usize,
     pub sort_type: SortType,
     pub current_metric: MetricType,
-    pub scroll_to_pid: Option<Pid>,
+    pub scroll_target: &'a mut Option<Pid>,
 } 

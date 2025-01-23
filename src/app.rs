@@ -3,6 +3,8 @@ use crate::process::{ProcessMonitor, ProcessHistory, SortType, MetricType};
 use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view::{self, state::ProcessView};
 use crate::components::settings::{Settings, show_settings_window};
+use std::collections::HashSet;
+use sysinfo::Pid;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
@@ -17,6 +19,8 @@ pub struct ProcessMonitorApp {
     settings: Settings,
     active_process_idx: Option<usize>,
     sort_type: SortType,
+    #[serde(skip)]
+    scroll_target: Option<Pid>,
 }
 
 impl Default for ProcessMonitorApp {
@@ -30,6 +34,7 @@ impl Default for ProcessMonitorApp {
             settings,
             active_process_idx: None,
             sort_type: SortType::default(),
+            scroll_target: None,
         }
     }
 }
@@ -196,7 +201,7 @@ impl eframe::App for ProcessMonitorApp {
                             process_idx: idx,
                             sort_type: self.sort_type,
                             current_metric: MetricType::Cpu,
-                            scroll_to_pid: None,
+                            scroll_target: &mut self.scroll_target,
                         };
                         process_view::show_process(ui, process_name, &mut state, &self.settings);
                         self.sort_type = state.sort_type;

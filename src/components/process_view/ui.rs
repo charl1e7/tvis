@@ -104,7 +104,7 @@ pub fn show_process(
                                 ui.label(" | ");
                                 if let Some(parent_pid) = process.parent_pid {
                                     if ui.link(format!("Parent PID: {}", parent_pid)).clicked() {
-                                        state.scroll_to_pid = Some(parent_pid);
+                                        *state.scroll_target = Some(parent_pid);
                                     }
                                 } else {
                                     ui.label("Parent PID: None");
@@ -157,10 +157,10 @@ pub fn show_process(
                         });
 
                         // Check if we need to scroll to this process
-                        if let Some(scroll_to_pid) = state.scroll_to_pid {
-                            if process.pid == scroll_to_pid {
+                        if let Some(target_pid) = *state.scroll_target {
+                            if process.pid == target_pid {
                                 ui.scroll_to_rect(response.response.rect, Some(egui::Align::Center));
-                                state.scroll_to_pid = None;
+                                *state.scroll_target = None;
                             }
                         }
                     }
