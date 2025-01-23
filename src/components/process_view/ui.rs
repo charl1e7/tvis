@@ -96,63 +96,89 @@ pub fn show_process(
                     }
                 }
 
-                egui::ScrollArea::vertical()
+                static mut SCROLL_TO_PID: Option<sysinfo::Pid> = None;
+                let scroll_area_id = ui.make_persistent_id("processes_scroll_area");
+                let scroll = egui::ScrollArea::vertical()
                     .max_height(300.0)
-                    .show(ui, |ui| {
-                        for process in processes {
-                            ui.group(|ui| {
-                                let avg_cpu = history.get_child_cpu_history(&process.pid)
-                                    .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                                    .unwrap_or(0.0);
-                                
-                                ui.heading(&process.name);
-                                ui.label(format!("PID: {} (Avg CPU: {:.1}%)", process.pid, avg_cpu));
-                                
-                                match unsafe { CURRENT_METRIC } {
-                                    MetricType::Cpu => {
-                                        ui.horizontal(|ui| {
-                                            ui.label(format!("Current CPU: {:.1}%", process.cpu_usage));
-                                            ui.label(" | ");
-                                            if let Some(cpu_history) = history.get_child_cpu_history(&process.pid) {
-                                                ui.label(format!("Peak: {:.1}%", cpu_history.iter().copied().fold(0.0, f32::max)));
-                                            }
-                                        });
-                                        if let Some(cpu_history) = history.get_child_cpu_history(&process.pid) {
-                                            let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
-                                            plot_metric(
-                                                ui,
-                                                format!("child_cpu_plot_{}_{}", process_idx, process.pid),
-                                                80.0,
-                                                cpu_history,
-                                                history.history_max_points,
-                                                max_cpu * (1.0 + settings.graph_scale_margin),
-                                            );
-                                        }
+                    .id_source(scroll_area_id);
+
+                scroll.show(ui, |ui| {
+                    for process in &processes {
+                        let process_id = ui.make_persistent_id(format!("process_{}", process.pid));
+                        let response = ui.group(|ui| {
+                            let avg_cpu = history.get_child_cpu_history(&process.pid)
+                                .map(|h| h.iter().sum::<f32>() / h.len() as f32)
+                                .unwrap_or(0.0);
+                            
+                            ui.heading(&process.name);
+                            ui.horizontal(|ui| {
+                                ui.label(format!("PID: {}", process.pid));
+                                ui.label(" | ");
+                                if let Some(parent_pid) = process.parent_pid {
+                                    if ui.link(format!("Parent PID: {}", parent_pid)).clicked() {
+                                        unsafe { SCROLL_TO_PID = Some(parent_pid); }
                                     }
-                                    MetricType::Memory => {
-                                        ui.horizontal(|ui| {
-                                            ui.label(format!("Memory Usage: {:.1} MB", process.memory_mb));
-                                            ui.label(" | ");
-                                            if let Some(memory_history) = history.get_child_memory_history(&process.pid) {
-                                                ui.label(format!("Peak: {:.1} MB", memory_history.iter().copied().fold(0.0, f32::max)));
-                                            }
-                                        });
-                                        if let Some(memory_history) = history.get_child_memory_history(&process.pid) {
-                                            let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
-                                            plot_metric(
-                                                ui,
-                                                format!("child_memory_plot_{}_{}", process_idx, process.pid),
-                                                80.0,
-                                                memory_history,
-                                                history.history_max_points,
-                                                max_memory * (1.0 + settings.graph_scale_margin),
-                                            );
-                                        }
-                                    }
+                                } else {
+                                    ui.label("Parent PID: None");
                                 }
                             });
+                            ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
+                            
+                            match unsafe { CURRENT_METRIC } {
+                                MetricType::Cpu => {
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("Current CPU: {:.1}%", process.cpu_usage));
+                                        ui.label(" | ");
+                                        if let Some(cpu_history) = history.get_child_cpu_history(&process.pid) {
+                                            ui.label(format!("Peak: {:.1}%", cpu_history.iter().copied().fold(0.0, f32::max)));
+                                        }
+                                    });
+                                    if let Some(cpu_history) = history.get_child_cpu_history(&process.pid) {
+                                        let max_cpu = cpu_history.iter().copied().fold(0.0, f32::max);
+                                        plot_metric(
+                                            ui,
+                                            format!("child_cpu_plot_{}_{}", process_idx, process.pid),
+                                            80.0,
+                                            cpu_history,
+                                            history.history_max_points,
+                                            max_cpu * (1.0 + settings.graph_scale_margin),
+                                        );
+                                    }
+                                }
+                                MetricType::Memory => {
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("Memory Usage: {:.1} MB", process.memory_mb));
+                                        ui.label(" | ");
+                                        if let Some(memory_history) = history.get_child_memory_history(&process.pid) {
+                                            ui.label(format!("Peak: {:.1} MB", memory_history.iter().copied().fold(0.0, f32::max)));
+                                        }
+                                    });
+                                    if let Some(memory_history) = history.get_child_memory_history(&process.pid) {
+                                        let max_memory = memory_history.iter().copied().fold(0.0, f32::max);
+                                        plot_metric(
+                                            ui,
+                                            format!("child_memory_plot_{}_{}", process_idx, process.pid),
+                                            80.0,
+                                            memory_history,
+                                            history.history_max_points,
+                                            max_memory * (1.0 + settings.graph_scale_margin),
+                                        );
+                                    }
+                                }
+                            }
+                        });
+
+                        // Если этот процесс тот, к которому нужно прокрутить
+                        unsafe {
+                            if let Some(scroll_to_pid) = SCROLL_TO_PID {
+                                if process.pid == scroll_to_pid {
+                                    ui.scroll_to_rect(response.response.rect, Some(egui::Align::Center));
+                                    SCROLL_TO_PID = None;
+                                }
+                            }
                         }
-                    });
+                    }
+                });
             });
         }
     });

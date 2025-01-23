@@ -8,6 +8,7 @@ pub use history::*;
 pub struct ProcessInfo {
     pub name: String,
     pub pid: sysinfo::Pid,
+    pub parent_pid: Option<sysinfo::Pid>,
     pub cpu_usage: f32,
     pub memory_mb: f32,
 }

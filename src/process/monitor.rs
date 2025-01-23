@@ -46,6 +46,23 @@ impl ProcessMonitor {
         processes
     }
 
+    fn collect_child_pids(&self, parent_pids: &[sysinfo::Pid], seen_pids: &mut HashSet<sysinfo::Pid>) -> Vec<sysinfo::Pid> {
+        let mut child_pids = Vec::new();
+        
+        for process in self.system.processes().values() {
+            if let Some(parent_pid) = process.parent() {
+                if parent_pids.contains(&parent_pid) && !seen_pids.contains(&process.pid()) {
+                    seen_pids.insert(process.pid());
+                    child_pids.push(process.pid());
+                    let grandchild_pids = self.collect_child_pids(&[process.pid()], seen_pids);
+                    child_pids.extend(grandchild_pids);
+                }
+            }
+        }
+        
+        child_pids
+    }
+
     pub fn get_process_stats(&self, process_name: &str, history: &ProcessHistory, process_idx: usize) -> Option<ProcessStats> {
         let mut all_processes = Vec::new();
         let mut seen_pids = HashSet::new();
@@ -60,23 +77,32 @@ impl ProcessMonitor {
             return None;
         }
 
-        self.system.processes()
-            .values()
-            .filter(|p| {
-                p.name().to_string_lossy() == process_name || 
-                p.parent().map(|parent_pid| parent_pids.contains(&parent_pid)).unwrap_or(false)
-            })
-            .for_each(|p| {
-                if !seen_pids.contains(&p.pid()) {
-                    seen_pids.insert(p.pid());
-                    all_processes.push(ProcessInfo {
-                        name: p.name().to_string_lossy().into_owned(),
-                        pid: p.pid(),
-                        cpu_usage: p.cpu_usage(),
-                        memory_mb: p.memory() as f32 / 1024.0 / 1024.0,
-                    });
-                }
-            });
+        for pid in &parent_pids {
+            if let Some(process) = self.system.processes().get(pid) {
+                seen_pids.insert(*pid);
+                all_processes.push(ProcessInfo {
+                    name: process.name().to_string_lossy().into_owned(),
+                    pid: *pid,
+                    parent_pid: process.parent(),
+                    cpu_usage: process.cpu_usage(),
+                    memory_mb: process.memory() as f32 / 1024.0 / 1024.0,
+                });
+            }
+        }
+
+        let child_pids = self.collect_child_pids(&parent_pids, &mut seen_pids);
+        
+        for pid in child_pids {
+            if let Some(process) = self.system.processes().get(&pid) {
+                all_processes.push(ProcessInfo {
+                    name: process.name().to_string_lossy().into_owned(),
+                    pid,
+                    parent_pid: process.parent(),
+                    cpu_usage: process.cpu_usage(),
+                    memory_mb: process.memory() as f32 / 1024.0 / 1024.0,
+                });
+            }
+        }
 
         let (current_cpu, memory_mb): (f32, f32) = all_processes.iter()
             .fold((0.0, 0.0), |(cpu, mem), p| {
@@ -135,23 +161,32 @@ impl ProcessMonitor {
             return None;
         }
 
-        self.system.processes()
-            .values()
-            .filter(|p| {
-                p.name().to_string_lossy() == process_name || 
-                p.parent().map(|parent_pid| parent_pids.contains(&parent_pid)).unwrap_or(false)
-            })
-            .for_each(|p| {
-                if !seen_pids.contains(&p.pid()) {
-                    seen_pids.insert(p.pid());
-                    all_processes.push(ProcessInfo {
-                        name: p.name().to_string_lossy().into_owned(),
-                        pid: p.pid(),
-                        cpu_usage: p.cpu_usage(),
-                        memory_mb: p.memory() as f32 / 1024.0 / 1024.0,
-                    });
-                }
-            });
+        for pid in &parent_pids {
+            if let Some(process) = self.system.processes().get(pid) {
+                seen_pids.insert(*pid);
+                all_processes.push(ProcessInfo {
+                    name: process.name().to_string_lossy().into_owned(),
+                    pid: *pid,
+                    parent_pid: process.parent(),
+                    cpu_usage: process.cpu_usage(),
+                    memory_mb: process.memory() as f32 / 1024.0 / 1024.0,
+                });
+            }
+        }
+
+        let child_pids = self.collect_child_pids(&parent_pids, &mut seen_pids);
+        
+        for pid in child_pids {
+            if let Some(process) = self.system.processes().get(&pid) {
+                all_processes.push(ProcessInfo {
+                    name: process.name().to_string_lossy().into_owned(),
+                    pid,
+                    parent_pid: process.parent(),
+                    cpu_usage: process.cpu_usage(),
+                    memory_mb: process.memory() as f32 / 1024.0 / 1024.0,
+                });
+            }
+        }
 
         let (current_cpu, memory_mb): (f32, f32) = all_processes.iter()
             .fold((0.0, 0.0), |(cpu, mem), p| {
