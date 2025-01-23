@@ -4,6 +4,32 @@ mod monitor;
 pub use history::*;
 pub use monitor::*;
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProcessIdentifier {
+    Name(String),
+    Pid(sysinfo::Pid),
+}
+
+impl From<&str> for ProcessIdentifier {
+    fn from(s: &str) -> Self {
+        if s.starts_with("pid:") {
+            if let Ok(pid) = s[4..].parse::<usize>() {
+                return ProcessIdentifier::Pid(sysinfo::Pid::from(pid));
+            }
+        }
+        ProcessIdentifier::Name(s.to_string())
+    }
+}
+
+impl ToString for ProcessIdentifier {
+    fn to_string(&self) -> String {
+        match self {
+            ProcessIdentifier::Name(name) => name.clone(),
+            ProcessIdentifier::Pid(pid) => format!("pid:{}", pid),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProcessInfo {
     pub name: String,

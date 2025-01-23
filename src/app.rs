@@ -1,7 +1,7 @@
 use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view::{self, state::ProcessView};
 use crate::components::settings::{show_settings_window, Settings};
-use crate::process::{MetricType, ProcessHistory, ProcessMonitor, SortType};
+use crate::process::{MetricType, ProcessHistory, ProcessMonitor, SortType, ProcessIdentifier};
 use std::time::Duration;
 use sysinfo::Pid;
 
@@ -74,9 +74,10 @@ impl ProcessMonitorApp {
         let mut all_active_pids = Vec::with_capacity(
             self.monitored_processes
                 .iter()
-                .map(|name| {
+                .map(|identifier_str| {
+                    let identifier = ProcessIdentifier::from(identifier_str.as_str());
                     self.monitor
-                        .get_basic_stats(name)
+                        .get_basic_stats(&identifier)
                         .map(|stats| stats.processes.len())
                         .unwrap_or(0)
                 })
@@ -84,8 +85,9 @@ impl ProcessMonitorApp {
         );
 
         // Update histories for monitored processes
-        for (i, process_name) in self.monitored_processes.iter().enumerate() {
-            if let Some(stats) = self.monitor.get_basic_stats(process_name) {
+        for (i, process_identifier) in self.monitored_processes.iter().enumerate() {
+            let identifier = ProcessIdentifier::from(process_identifier.as_str());
+            if let Some(stats) = self.monitor.get_basic_stats(&identifier) {
                 self.history.update_process_cpu(i, stats.current_cpu);
                 self.history.update_memory(i, stats.memory_mb);
 
@@ -207,10 +209,9 @@ impl eframe::App for ProcessMonitorApp {
 
             // Display process information
             if let Some(idx) = self.active_process_idx {
-                if let Some(process_name) = self.monitored_processes.get(idx) {
-                    if let Some(stats) =
-                        self.monitor
-                            .get_process_stats(process_name, &self.history, idx)
+                if let Some(process_identifier) = self.monitored_processes.get(idx) {
+                    let identifier = ProcessIdentifier::from(process_identifier.as_str());
+                    if let Some(stats) = self.monitor.get_process_stats(&identifier, &self.history, idx)
                     {
                         let mut state = ProcessView {
                             stats,
@@ -220,11 +221,11 @@ impl eframe::App for ProcessMonitorApp {
                             current_metric: &mut self.current_metric,
                             scroll_target: &mut self.scroll_target,
                         };
-                        process_view::show_process(ui, process_name, &mut state, &self.settings);
+                        process_view::show_process(ui, process_identifier, &mut state, &self.settings);
                         self.sort_type = state.sort_type;
                     } else {
                         ui.group(|ui| {
-                            ui.heading(process_name);
+                            ui.heading(process_identifier);
                             ui.label("Process not found");
                         });
                     }
