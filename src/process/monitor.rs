@@ -74,9 +74,8 @@ impl ProcessMonitor {
                     let info = self.collect_process_info(process);
                     if info.is_thread {
                         thread_count += 1;
-                    } else {
-                        all_processes.push(info);
                     }
+                    all_processes.push(info);
 
                     let child_pids = self.collect_child_pids(&[*pid], &mut seen_pids);
                     for child_pid in child_pids {
@@ -84,9 +83,8 @@ impl ProcessMonitor {
                             let info = self.collect_process_info(process);
                             if info.is_thread {
                                 thread_count += 1;
-                            } else {
-                                all_processes.push(info);
                             }
+                            all_processes.push(info);
                         }
                     }
 
@@ -119,9 +117,8 @@ impl ProcessMonitor {
                         let info = self.collect_process_info(process);
                         if info.is_thread {
                             thread_count += 1;
-                        } else {
-                            all_processes.push(info);
                         }
+                        all_processes.push(info);
                     }
                 }
 
@@ -131,9 +128,8 @@ impl ProcessMonitor {
                         let info = self.collect_process_info(process);
                         if info.is_thread {
                             thread_count += 1;
-                        } else {
-                            all_processes.push(info);
                         }
+                        all_processes.push(info);
                     }
                 }
 
