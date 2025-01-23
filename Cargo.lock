@@ -2081,7 +2081,6 @@ dependencies = [
  "egui_plot",
  "env_logger",
  "log",
- "once_cell",
  "serde",
  "sysinfo",
  "wasm-bindgen-futures",
