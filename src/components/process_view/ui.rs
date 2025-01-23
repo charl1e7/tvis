@@ -16,16 +16,16 @@ pub fn show_process(
 
         // Metric toggle button
         ui.horizontal(|ui| {
-            if ui.selectable_label(state.current_metric == MetricType::Cpu, "CPU").clicked() {
-                state.current_metric = MetricType::Cpu;
+            if ui.selectable_label(*state.current_metric == MetricType::Cpu, "CPU").clicked() {
+                *state.current_metric = MetricType::Cpu;
             }
-            if ui.selectable_label(state.current_metric == MetricType::Memory, "Memory").clicked() {
-                state.current_metric = MetricType::Memory;
+            if ui.selectable_label(*state.current_metric == MetricType::Memory, "Memory").clicked() {
+                *state.current_metric = MetricType::Memory;
             }
         });
 
         // Plot based on selected metric
-        match state.current_metric {
+        match *state.current_metric {
             MetricType::Cpu => {
                 if let Some(cpu_history) = state.history.get_process_cpu_history(state.process_idx) {
                     if !cpu_history.is_empty() {
@@ -103,8 +103,15 @@ pub fn show_process(
                                 ui.label(format!("PID: {}", process.pid));
                                 ui.label(" | ");
                                 if let Some(parent_pid) = process.parent_pid {
-                                    if ui.link(format!("Parent PID: {}", parent_pid)).clicked() {
-                                        *state.scroll_target = Some(parent_pid);
+                                    let parent_exists = state.stats.processes.iter()
+                                        .any(|p| p.pid == parent_pid);
+                                    
+                                    if parent_exists {
+                                        if ui.link(format!("Parent PID: {}", parent_pid)).clicked() {
+                                            *state.scroll_target = Some(parent_pid);
+                                        }
+                                    } else {
+                                        ui.label(format!("Parent PID: {}", parent_pid));
                                     }
                                 } else {
                                     ui.label("Parent PID: None");
@@ -112,7 +119,7 @@ pub fn show_process(
                             });
                             ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
                             
-                            match state.current_metric {
+                            match *state.current_metric {
                                 MetricType::Cpu => {
                                     ui.horizontal(|ui| {
                                         ui.label(format!("Current CPU: {:.1}%", process.cpu_usage));

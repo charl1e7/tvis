@@ -21,6 +21,7 @@ pub struct ProcessMonitorApp {
     sort_type: SortType,
     #[serde(skip)]
     scroll_target: Option<Pid>,
+    current_metric: MetricType,
 }
 
 impl Default for ProcessMonitorApp {
@@ -35,6 +36,7 @@ impl Default for ProcessMonitorApp {
             active_process_idx: None,
             sort_type: SortType::default(),
             scroll_target: None,
+            current_metric: MetricType::default(),
         }
     }
 }
@@ -200,7 +202,7 @@ impl eframe::App for ProcessMonitorApp {
                             history: &self.history,
                             process_idx: idx,
                             sort_type: self.sort_type,
-                            current_metric: MetricType::Cpu,
+                            current_metric: &mut self.current_metric,
                             scroll_target: &mut self.scroll_target,
                         };
                         process_view::show_process(ui, process_name, &mut state, &self.settings);

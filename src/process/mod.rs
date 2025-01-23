@@ -19,7 +19,7 @@ pub enum SortType {
     Memory,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum MetricType {
     Cpu,
     Memory,
