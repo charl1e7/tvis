@@ -21,9 +21,6 @@ impl ProcessSelector {
         egui::Window::new("Select Process")
             .collapsible(false)
             .resizable(true)
-            .default_size([300.0, 400.0])
-            .min_width(250.0)
-            .max_height(500.0)
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Search:");

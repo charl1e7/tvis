@@ -12,7 +12,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            scale: 1.35,
+            scale: 1.2,
             font_size: 15.0,
             graph_scale_margin: 0.35,
             update_interval_ms: 1000,

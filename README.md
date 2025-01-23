@@ -1,4 +1,4 @@
-# TVIS 
+# TVIS <img src="assets/icon_ios_touch_192.png" width="26" height="26" style="vertical-align: middle;">
 
 <div align="center">
 

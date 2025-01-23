@@ -16,20 +16,27 @@ pub fn show_process(
 
         // Metric toggle button
         ui.horizontal(|ui| {
-            if ui
-                .selectable_label(*state.current_metric == MetricType::Cpu, "CPU")
-                .clicked()
-            {
-                *state.current_metric = MetricType::Cpu;
-            }
-            if ui
-                .selectable_label(*state.current_metric == MetricType::Memory, "Memory")
-                .clicked()
-            {
-                *state.current_metric = MetricType::Memory;
-            }
+            egui::Frame::none()
+                .rounding(5.0)
+                .stroke(ui.style().visuals.widgets.noninteractive.bg_stroke)
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        if ui
+                            .selectable_label(*state.current_metric == MetricType::Cpu, "CPU")
+                            .clicked()
+                        {
+                            *state.current_metric = MetricType::Cpu;
+                        }
+                        if ui
+                            .selectable_label(*state.current_metric == MetricType::Memory, "Memory")
+                            .clicked()
+                        {
+                            *state.current_metric = MetricType::Memory;
+                        }
+                    });
+                });
         });
-
+        ui.add_space(3.0);
         // Plot based on selected metric
         match *state.current_metric {
             MetricType::Cpu => {
@@ -41,6 +48,7 @@ pub fn show_process(
                             ui.label(" | ");
                             ui.label(format!("Peak: {:.1}%", state.stats.peak_cpu));
                         });
+                        ui.add_space(2.0);
                         plot_metric(
                             ui,
                             format!("cpu_plot_{}", state.process_idx),
@@ -146,18 +154,17 @@ pub fn show_process(
                                         state.stats.processes.iter().any(|p| p.pid == parent_pid);
 
                                     if parent_exists {
-                                        if ui.link(format!("Parent PID: {}", parent_pid)).clicked()
+                                        if ui.link(format!("Parent: {}", parent_pid)).clicked()
                                         {
                                             *state.scroll_target = Some(parent_pid);
                                         }
                                     } else {
-                                        ui.label(format!("Parent PID: {}", parent_pid));
+                                        ui.label(format!("Parent: {}", parent_pid));
                                     }
                                 } else {
-                                    ui.label("Parent PID: None");
+                                    ui.label("Parent: None");
                                 }
                             });
-                            ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
 
                             match *state.current_metric {
                                 MetricType::Cpu => {
@@ -173,7 +180,10 @@ pub fn show_process(
                                                 cpu_history.iter().copied().fold(0.0, f32::max)
                                             ));
                                         }
+                                        ui.label(" | ");
+                                        ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
                                     });
+                                    ui.add_space(2.0);
                                     if let Some(cpu_history) = state
                                         .history
                                         .get_child_cpu_history(state.process_idx, &process.pid)
@@ -212,6 +222,7 @@ pub fn show_process(
                                             ));
                                         }
                                     });
+                                    ui.add_space(5.0);
                                     if let Some(memory_history) = state
                                         .history
                                         .get_child_memory_history(state.process_idx, &process.pid)
