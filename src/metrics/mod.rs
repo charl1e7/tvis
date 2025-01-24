@@ -1,12 +1,14 @@
-use crate::process::{ProcessHistory, ProcessIdentifier, ProcessStats};
 use log::info;
+pub mod process;
+pub mod monitor;
 use monitor::ProcessMonitor;
+use process::{ProcessHistory, ProcessIdentifier, ProcessInfo};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use sysinfo::{Pid, System};
-mod monitor;
+
 
 #[derive(Debug, Clone, Default)]
 pub struct Metrics {
@@ -26,13 +28,13 @@ impl Metrics {
         }));
 
         let metrics_clone = Arc::clone(&metrics);
-        let monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms));
         thread::spawn(move || {
             loop {
+                let monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms));
                 let mut metrics = metrics_clone.write().unwrap();
                 metrics.update_metrics(&monitor);
                 
-                info!("Updated Metrics: {:#?}", metrics.history);
+                info!("Updated Metrics: {:#?}", metrics);
                 thread::sleep(metrics.update_interval);
             }
         });

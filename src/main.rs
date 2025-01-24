@@ -6,7 +6,8 @@ use tvis::ProcessMonitorApp;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
-    use tvis::{metrics::Metrics, process::ProcessIdentifier};
+    use tvis::metrics::{process::ProcessIdentifier, Metrics};
+
 
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
@@ -14,7 +15,7 @@ fn main() -> eframe::Result<()> {
     let metrics = Metrics::new(1000, 100);
     {
         let mut metrics_clone = metrics.write().unwrap();
-        metrics_clone.add_selected_process(ProcessIdentifier::from("pid:24020"));
+        metrics_clone.add_selected_process(ProcessIdentifier::from("chrome.exe"));
     }
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
