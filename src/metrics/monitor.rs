@@ -1,10 +1,14 @@
-use super::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessStats};
+use crate::process::ProcessInfo;
+
+use super::{ProcessHistory, ProcessIdentifier, ProcessStats};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
+use log::info;
 use sysinfo::{Process, System};
 
+#[derive(Debug)]
 pub struct ProcessMonitor {
-    system: System,
+    pub system: System,
     last_update: Instant,
     update_interval: Duration,
 }
@@ -12,7 +16,7 @@ pub struct ProcessMonitor {
 impl ProcessMonitor {
     pub fn new(update_interval: Duration) -> Self {
         Self {
-            system: System::new(),
+            system: System::new_all(),
             last_update: Instant::now(),
             update_interval,
         }
@@ -74,7 +78,6 @@ impl ProcessMonitor {
                 let mut all_processes = Vec::new();
                 let mut seen_pids = HashSet::new();
                 let mut thread_count = 0;
-
                 if let Some(process) = self.system.processes().get(pid) {
                     seen_pids.insert(*pid);
                     let info = self.collect_process_info(process);
@@ -254,7 +257,6 @@ impl ProcessMonitor {
     pub fn get_basic_stats(&self, identifier: &ProcessIdentifier) -> Option<ProcessStats> {
         let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
-
         Some(ProcessStats {
             current_cpu,
             avg_cpu: current_cpu,

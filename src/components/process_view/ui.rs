@@ -154,8 +154,7 @@ pub fn show_process(
                                         state.stats.processes.iter().any(|p| p.pid == parent_pid);
 
                                     if parent_exists {
-                                        if ui.link(format!("Parent: {}", parent_pid)).clicked()
-                                        {
+                                        if ui.link(format!("Parent: {}", parent_pid)).clicked() {
                                             *state.scroll_target = Some(parent_pid);
                                         }
                                     } else {

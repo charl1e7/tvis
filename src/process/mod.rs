@@ -4,7 +4,7 @@ mod monitor;
 pub use history::*;
 pub use monitor::*;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum ProcessIdentifier {
     Name(String),
     Pid(sysinfo::Pid),
@@ -40,6 +40,31 @@ pub struct ProcessInfo {
     pub is_thread: bool,
 }
 
+impl From<&str> for ProcessInfo {
+    fn from(s: &str) -> Self {
+        if s.starts_with("pid:") {
+            if let Ok(pid) = s[4..].parse::<usize>() {
+                return Self {
+                    name: format!("Process {}", pid),
+                    pid: sysinfo::Pid::from(pid),
+                    parent_pid: None,
+                    cpu_usage: 0.0,
+                    memory_mb: 0.0,
+                    is_thread: false,
+                };
+            }
+        }
+        Self {
+            name: s.to_string(),
+            pid: sysinfo::Pid::from(0),
+            parent_pid: None,
+            cpu_usage: 0.0,
+            memory_mb: 0.0,
+            is_thread: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum SortType {
     AvgCpu,
@@ -64,7 +89,7 @@ impl Default for SortType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct ProcessStats {
     pub current_cpu: f32,
     pub avg_cpu: f32,

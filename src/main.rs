@@ -6,14 +6,15 @@ use tvis::ProcessMonitorApp;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
-    use tvis::metrics::Metrics;
+    use tvis::{metrics::Metrics, process::ProcessIdentifier};
 
-    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     let metrics = Metrics::new(1000, 100);
     {
-
         let mut metrics_clone = metrics.write().unwrap();
-        metrics_clone.add_selected_process("pid:24020".to_string());
+        metrics_clone.add_selected_process(ProcessIdentifier::from("pid:24020"));
     }
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

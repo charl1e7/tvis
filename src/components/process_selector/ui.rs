@@ -1,5 +1,5 @@
 use super::state::ProcessSelector;
-use crate::process::{ProcessMonitor, ProcessIdentifier};
+use crate::process::{ProcessIdentifier, ProcessMonitor};
 
 impl ProcessSelector {
     pub fn show(
@@ -44,16 +44,18 @@ impl ProcessSelector {
                     .max_height(300.0)
                     .show(ui, |ui| {
                         let search_term = self.search.to_lowercase();
-                        
+
                         if self.search_by_pid {
                             // Search by PID
                             if !search_term.is_empty() {
                                 if let Ok(pid) = search_term.parse::<usize>() {
                                     let pid = sysinfo::Pid::from(pid);
                                     if let Some(process) = monitor.get_process_by_pid(pid) {
-                                        let display_text = format!("{} (PID: {})", process.name, pid);
+                                        let display_text =
+                                            format!("{} (PID: {})", process.name, pid);
                                         if ui.button(&display_text).clicked() {
-                                            let identifier = ProcessIdentifier::Pid(pid).to_string();
+                                            let identifier =
+                                                ProcessIdentifier::Pid(pid).to_string();
                                             monitored_processes.push(identifier);
                                             added_idx = Some(monitored_processes.len() - 1);
                                             self.show = false;
@@ -61,13 +63,13 @@ impl ProcessSelector {
                                     }
                                 }
                             }
-                            
+
                             // Show all processes with PIDs
                             for (name, pid) in monitor.get_all_processes_with_pid() {
                                 let display_text = format!("{} (PID: {})", name, pid);
-                                if search_term.is_empty() 
-                                    || display_text.to_lowercase().contains(&search_term) 
-                                    || pid.to_string().contains(&search_term) 
+                                if search_term.is_empty()
+                                    || display_text.to_lowercase().contains(&search_term)
+                                    || pid.to_string().contains(&search_term)
                                 {
                                     if ui.button(&display_text).clicked() {
                                         let identifier = ProcessIdentifier::Pid(pid).to_string();
@@ -85,7 +87,8 @@ impl ProcessSelector {
                                     || process_name.to_lowercase().contains(&search_term)
                                 {
                                     if ui.button(&process_name).clicked() {
-                                        let identifier = ProcessIdentifier::Name(process_name).to_string();
+                                        let identifier =
+                                            ProcessIdentifier::Name(process_name).to_string();
                                         if !monitored_processes.contains(&identifier) {
                                             monitored_processes.push(identifier);
                                             added_idx = Some(monitored_processes.len() - 1);

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use sysinfo::Pid;
 
 /// Stores historical data for processes and their children
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct ProcessHistory {
     /// for each monitored process
     histories: Vec<ProcessGroup>,
@@ -11,7 +11,7 @@ pub struct ProcessHistory {
 }
 
 /// Groups process metrics with its children
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 struct ProcessGroup {
     metrics: ProcessMetrics,
     /// histories for child processes
@@ -19,7 +19,7 @@ struct ProcessGroup {
 }
 
 /// Stores CPU and memory metrics for a process
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 struct ProcessMetrics {
     cpu: CircularBuffer,
     memory: CircularBuffer,
@@ -51,7 +51,7 @@ impl ProcessMetrics {
 }
 
 /// A fixed-size circular buffer for storing historical data
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct CircularBuffer {
     data: Vec<f32>,
     position: usize,
