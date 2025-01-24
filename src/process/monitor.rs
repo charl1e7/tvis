@@ -185,9 +185,12 @@ impl ProcessMonitor {
     }
 
     fn calculate_stats(processes: &[ProcessInfo]) -> (f32, f32) {
-        processes.iter().fold((0.0, 0.0), |(cpu, mem), p| {
-            (cpu + p.cpu_usage, mem + p.memory_mb)
-        })
+        processes
+            .iter()
+            .filter(|p| !p.is_thread)  // Only include non-thread processes
+            .fold((0.0, 0.0), |(cpu, mem), p| {
+                (cpu + p.cpu_usage, mem + p.memory_mb)
+            })
     }
 
     fn calculate_history_stats(history: &[f32]) -> (f32, f32) {

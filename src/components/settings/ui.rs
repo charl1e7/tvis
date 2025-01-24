@@ -36,7 +36,7 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
             ui.horizontal(|ui| {
                 ui.label("Update Interval:");
                 ui.add(
-                    egui::Slider::new(&mut settings.update_interval_ms, 100..=5000)
+                    egui::Slider::new(&mut settings.update_interval_ms, 200..=5000)
                         .step_by(100.0)
                         .suffix(" ms")
                         .text("Time between updates"),
