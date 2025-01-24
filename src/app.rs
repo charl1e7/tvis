@@ -1,41 +1,128 @@
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
+use crate::components::process_selector::ProcessSelector;
+use crate::components::process_view::{self, state::ProcessView};
+use crate::components::settings::{show_settings_window, Settings};
+use crate::process::{MetricType, ProcessHistory, ProcessMonitor, SortType, ProcessIdentifier};
+use std::time::Duration;
+use sysinfo::Pid;
+
 #[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
+#[serde(default)]
+pub struct ProcessMonitorApp {
+    #[serde(skip)]
+    monitor: ProcessMonitor,
+    #[serde(skip)]
+    history: ProcessHistory,
+    monitored_processes: Vec<String>,
+    #[serde(skip)]
+    process_selector: ProcessSelector,
+    settings: Settings,
+    active_process_idx: Option<usize>,
+    sort_type: SortType,
+    #[serde(skip)]
+    scroll_target: Option<Pid>,
+    current_metric: MetricType,
 }
 
-impl Default for TemplateApp {
+impl Default for ProcessMonitorApp {
     fn default() -> Self {
+        let settings = Settings::default();
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            monitor: ProcessMonitor::new(Duration::from_millis(settings.update_interval_ms)),
+            history: ProcessHistory::new(settings.history_length),
+            monitored_processes: Vec::new(),
+            process_selector: ProcessSelector::default(),
+            settings,
+            active_process_idx: None,
+            sort_type: SortType::default(),
+            scroll_target: None,
+            current_metric: MetricType::default(),
         }
     }
 }
 
-impl TemplateApp {
-    /// Called once before the first frame.
+impl ProcessMonitorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            // Update history size if it changed in settings
+            app.history = ProcessHistory::new(app.settings.history_length);
+            app
+        } else {
+            Default::default()
+        }
+    }
+
+    fn update_metrics(&mut self) {
+        // Update monitor interval if it changed in settings
+        let current_interval = Duration::from_millis(self.settings.update_interval_ms);
+        if self.monitor.update_interval() != current_interval {
+            self.monitor.set_update_interval(current_interval);
         }
 
-        Default::default()
+        // Update history size if it changed
+        if self.history.history_max_points != self.settings.history_length {
+            self.history = ProcessHistory::new(self.settings.history_length);
+        }
+
+        if !self.monitor.should_update() {
+            return;
+        }
+
+        self.monitor.update();
+
+        // Pre-allocate with expected capacity
+        let mut all_active_pids = Vec::with_capacity(
+            self.monitored_processes
+                .iter()
+                .map(|identifier_str| {
+                    let identifier = ProcessIdentifier::from(identifier_str.as_str());
+                    self.monitor
+                        .get_basic_stats(&identifier)
+                        .map(|stats| stats.processes.len())
+                        .unwrap_or(0)
+                })
+                .sum(),
+        );
+
+        // Update histories for monitored processes
+        for (i, process_identifier) in self.monitored_processes.iter().enumerate() {
+            let identifier = ProcessIdentifier::from(process_identifier.as_str());
+            if let Some(stats) = self.monitor.get_basic_stats(&identifier) {
+                self.history.update_process_cpu(i, stats.current_cpu);
+                self.history.update_memory(i, stats.memory_mb);
+
+                all_active_pids.extend(stats.processes.iter().map(|process| {
+                    self.history
+                        .update_child_cpu(i, process.pid, process.cpu_usage);
+                    self.history
+                        .update_child_memory(i, process.pid, process.memory_mb);
+                    process.pid
+                }));
+            }
+        }
+
+        // Cleanup old child histories
+        for i in 0..self.monitored_processes.len() {
+            self.history.cleanup_child_histories(i, &all_active_pids);
+        }
+    }
+
+    fn remove_process(&mut self, idx: usize) {
+        self.monitored_processes.remove(idx);
+        self.history.remove_process(idx);
+
+        // Adjust active_process_idx if needed
+        if let Some(active_idx) = self.active_process_idx {
+            if active_idx > idx {
+                self.active_process_idx = Some(active_idx - 1);
+            } else if active_idx == idx {
+                self.active_process_idx = None;
+            }
+        }
     }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for ProcessMonitorApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -43,67 +130,112 @@ impl eframe::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
+        self.settings.apply(ctx);
+        self.update_metrics();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-
             egui::menu::bar(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
+                ui.menu_button("Menu", |ui| {
+                    if ui.button("Quit").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+
+                ui.add_space(16.0);
+                if ui.button("⚙").clicked() {
+                    self.settings.show();
+                }
+                ui.add_space(4.0);
+                if ui
+                    .button("⟲")
+                    .on_hover_text("Clear current process data")
+                    .clicked()
+                {
+                    if let Some(idx) = self.active_process_idx {
+                        self.history.clear_process(idx);
+                    }
+                }
+            });
+        });
+
+        show_settings_window(ctx, &mut self.settings);
+
+        egui::SidePanel::left("process_list")
+            .resizable(true)
+            .min_width(150.0)
+            .max_width(800.0)
+            .default_width(200.0)
+            .show(ctx, |ui| {
+                ui.heading("Monitored Processes");
+                ui.add_space(4.0);
+
+                // Process selector
+                if let Some(added_idx) =
+                    self.process_selector
+                        .show(ui, &self.monitor, &mut self.monitored_processes)
+                {
+                    self.active_process_idx = Some(added_idx);
                 }
 
-                egui::widgets::global_theme_preference_buttons(ui);
+                // Process list with remove buttons
+                let mut to_remove = None;
+                for (i, process) in self.monitored_processes.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        let is_active = self.active_process_idx == Some(i);
+
+                        let response = ui.selectable_label(is_active, process);
+                        if response.clicked() {
+                            self.active_process_idx = Some(i);
+                        }
+
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("❌").clicked() {
+                                to_remove = Some(i);
+                                if self.active_process_idx == Some(i) {
+                                    self.active_process_idx = None;
+                                }
+                            }
+                        });
+                    });
+                }
+
+                if let Some(idx) = to_remove {
+                    self.remove_process(idx);
+                }
             });
-        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            ui.heading("eframe template");
+            ui.heading("Process Monitor");
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(&mut self.label);
-            });
-
-            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                self.value += 1.0;
+            // Display process information
+            if let Some(idx) = self.active_process_idx {
+                if let Some(process_identifier) = self.monitored_processes.get(idx) {
+                    let identifier = ProcessIdentifier::from(process_identifier.as_str());
+                    if let Some(stats) = self.monitor.get_process_stats(&identifier, &self.history, idx)
+                    {
+                        let mut state = ProcessView {
+                            stats,
+                            history: &self.history,
+                            process_idx: idx,
+                            sort_type: self.sort_type,
+                            current_metric: &mut self.current_metric,
+                            scroll_target: &mut self.scroll_target,
+                        };
+                        process_view::show_process(ui, process_identifier, &mut state, &self.settings);
+                        self.sort_type = state.sort_type;
+                    } else {
+                        ui.group(|ui| {
+                            ui.heading(process_identifier);
+                            ui.label("Process not found");
+                        });
+                    }
+                }
+            } else if !self.monitored_processes.is_empty() {
+                ui.label("Select a process from the list to view details");
             }
-
-            ui.separator();
-
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/main/",
-                "Source code."
-            ));
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                powered_by_egui_and_eframe(ui);
-                egui::warn_if_debug_build(ui);
-            });
         });
-    }
-}
 
-fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        ui.label("Powered by ");
-        ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-        ui.label(" and ");
-        ui.hyperlink_to(
-            "eframe",
-            "https://github.com/emilk/egui/tree/master/crates/eframe",
-        );
-        ui.label(".");
-    });
+        // Change mode rendering
+        ctx.request_repaint();
+    }
 }
