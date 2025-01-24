@@ -62,7 +62,7 @@ pub struct CircularBuffer {
 
 impl CircularBuffer {
     /// Creates a new circular buffer with the specified size
-    fn new(size: usize) -> Self {
+    pub fn new(size: usize) -> Self {
         Self {
             data: vec![0.0; size],
             position: 0,
@@ -73,7 +73,7 @@ impl CircularBuffer {
     }
 
     /// Adds a new value to the buffer
-    fn push(&mut self, value: f32) {
+    pub fn push(&mut self, value: f32) {
         if self.len == self.data.len() {
             self.sum -= self.data[self.position];
         } else {
@@ -92,14 +92,14 @@ impl CircularBuffer {
     }
 
     /// Returns two slices representing the data in chronological order
-    fn as_slices(&self) -> (&[f32], &[f32]) {
+    pub fn as_slices(&self) -> (&[f32], &[f32]) {
         let (first, second) = self.data.split_at(self.position);
         (second, first)
     }
 
     /// Returns a slice of the buffer's data in chronological order
     /// with newest values at the end
-    fn as_slice(&self) -> Vec<f32> {
+    pub fn as_slice(&self) -> Vec<f32> {
         let (first, second) = self.as_slices();
         let mut result = Vec::with_capacity(self.len);
         result.extend_from_slice(first);
@@ -108,12 +108,12 @@ impl CircularBuffer {
     }
 
     /// Returns the maximum value in the buffer
-    fn max_value(&self) -> f32 {
+    pub fn max_value(&self) -> f32 {
         self.peak_value
     }
 
     /// Returns the last value in the buffer
-    fn last_value(&self) -> f32 {
+    pub fn last_value(&self) -> f32 {
         if self.position == 0 {
             self.data[self.data.len() - 1]
         } else {

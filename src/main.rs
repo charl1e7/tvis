@@ -6,8 +6,15 @@ use tvis::ProcessMonitorApp;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    use tvis::metrics::Metrics;
 
+    env_logger::builder().filter_level(log::LevelFilter::Info).init();
+    let metrics = Metrics::new(1000, 100);
+    {
+
+        let mut metrics_clone = metrics.write().unwrap();
+        metrics_clone.add_selected_process("pid:24020".to_string());
+    }
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800.0, 600.0])
