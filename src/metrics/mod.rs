@@ -1,8 +1,6 @@
 use log::info;
 pub mod process;
-pub mod monitor;
-use monitor::ProcessMonitor;
-use process::{ProcessHistory, ProcessIdentifier, ProcessInfo};
+use process::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessMonitor};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::thread;
