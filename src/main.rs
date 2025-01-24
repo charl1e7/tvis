@@ -12,7 +12,7 @@ fn main() -> eframe::Result<()> {
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .init();
-    let metrics = Metrics::new(1000, 100);
+    let metrics = Metrics::new(1000, 5);
     {
         let mut metrics_clone = metrics.write().unwrap();
         metrics_clone.add_selected_process(ProcessIdentifier::from("chrome.exe"));

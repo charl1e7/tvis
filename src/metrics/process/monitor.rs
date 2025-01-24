@@ -219,13 +219,25 @@ impl ProcessMonitor {
         let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
 
+        // Get the main process PID
+        let main_pid = match identifier {
+            ProcessIdentifier::Pid(pid) => *pid,
+            ProcessIdentifier::Name(name) => {
+                self.system
+                    .processes()
+                    .values()
+                    .find(|p| p.name().to_string_lossy() == name.as_str())
+                    .map(|p| p.pid())?
+            }
+        };
+
         let (peak_cpu, avg_cpu) = history
-            .get_process_cpu_history(process_idx)
+            .get_process_cpu_history(process_idx, &main_pid)
             .map(|h| Self::calculate_history_stats(h.as_slice()))
             .unwrap_or((current_cpu, current_cpu));
 
         let peak_memory = history
-            .get_memory_history(process_idx)
+            .get_memory_history(process_idx, &main_pid)
             .map(|h| h.iter().copied().fold(0.0, f32::max))
             .unwrap_or(memory_mb);
 

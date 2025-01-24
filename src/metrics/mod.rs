@@ -13,15 +13,15 @@ pub struct Metrics {
     monitored_processes: Vec<ProcessIdentifier>,
     history: ProcessHistory,
     update_interval: Duration,
-    history_size: usize,
+    history_len: usize,
 }
 
 impl Metrics {
-    pub fn new(update_interval_ms: u64, history_size: usize) -> Arc<RwLock<Self>> {
+    pub fn new(update_interval_ms: u64, history_len: usize) -> Arc<RwLock<Self>> {
         let metrics = Arc::new(RwLock::new(Self {
             update_interval: Duration::from_millis(update_interval_ms),
-            history_size,
-            history: ProcessHistory::new(history_size),
+            history_len,
+            history: ProcessHistory::new(history_len),
             ..Default::default()    
         }));
 
@@ -30,6 +30,11 @@ impl Metrics {
             loop {
                 let monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms));
                 let mut metrics = metrics_clone.write().unwrap();
+                // Update history size if it changed
+                if metrics.history.history_len != metrics.history_len {
+                    metrics.history = ProcessHistory::new(metrics.history_len);
+                }
+
                 metrics.update_metrics(&monitor);
                 
                 info!("Updated Metrics: {:#?}", metrics);
@@ -65,29 +70,18 @@ impl Metrics {
     }
 
     fn update_metrics(&mut self, monitor: &ProcessMonitor) {
-        let mut all_active_pids = Vec::with_capacity(
-            self.monitored_processes
-                .iter()
-                .map(|identifier| {
-                    monitor
-                        .get_basic_stats(&identifier)
-                        .map(|stats| stats.processes.len())
-                        .unwrap_or(0)
-                })
-                .sum(),
-        );
+        let mut all_active_pids = Vec::new();
+        
         for (i, process_identifier) in self.monitored_processes.iter().enumerate() {
             if let Some(stats) = monitor.get_basic_stats(&process_identifier) {
-                self.history.update_process_cpu(i, stats.current_cpu);
-                self.history.update_memory(i, stats.memory_mb);
-
                 all_active_pids.extend(stats.processes.iter().map(|process| {
-                    self.history
-                        .update_child_cpu(i, process.pid, process.cpu_usage);
-                    self.history
-                        .update_child_memory(i, process.pid, process.memory_mb);
+                    self.history.update_process_cpu(i, process.pid, process.cpu_usage);
+                    self.history.update_memory(i, process.pid, process.memory_mb);
                     process.pid
                 }));
+                
+                // Cleanup old processes that are no longer active
+                self.history.cleanup_histories(i, &all_active_pids);
             }
         }
     }
