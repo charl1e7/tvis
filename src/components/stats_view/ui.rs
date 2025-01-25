@@ -1,4 +1,4 @@
-use crate::process::ProcessStats;
+use crate::metrics::process::ProcessStats;
 
 pub fn show_process_stats(ui: &mut egui::Ui, stats: &ProcessStats) {
     ui.horizontal(|ui| {

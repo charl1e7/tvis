@@ -1,13 +1,14 @@
+use std::sync::{Arc, RwLock};
+
+use crate::{
+    metrics::{process::ProcessIdentifier, Metrics},
+    ProcessMonitorApp,
+};
+
 use super::state::ProcessSelector;
-use crate::process::{ProcessIdentifier, ProcessMonitor};
 
 impl ProcessSelector {
-    pub fn show(
-        &mut self,
-        ui: &mut egui::Ui,
-        monitor: &ProcessMonitor,
-        monitored_processes: &mut Vec<String>,
-    ) -> Option<usize> {
+    pub fn show(&mut self, ui: &mut egui::Ui, app: &mut ProcessMonitorApp) -> Option<usize> {
         if !self.show {
             if ui.button("Add Process").clicked() {
                 self.show = true;
@@ -44,59 +45,58 @@ impl ProcessSelector {
                     .max_height(300.0)
                     .show(ui, |ui| {
                         let search_term = self.search.to_lowercase();
-
+                        let mut new_proc = None;
                         if self.search_by_pid {
                             // Search by PID
-                            if !search_term.is_empty() {
-                                if let Ok(pid) = search_term.parse::<usize>() {
-                                    let pid = sysinfo::Pid::from(pid);
-                                    if let Some(process) = monitor.get_process_by_pid(pid) {
-                                        let display_text =
-                                            format!("{} (PID: {})", process.name, pid);
+                            {
+                                let monitor = &app.metrics.read().unwrap().monitor;
+                                if !search_term.is_empty() {
+                                    let proc = ProcessIdentifier::from(search_term.as_str());
+                                    if let Some(pid) = proc.to_pid() {
+                                        if let Some(process) = monitor.get_process_by_pid(pid) {
+                                            let display_text =
+                                                format!("{} (PID: {})", process.name, pid);
+                                            if ui.button(&display_text).clicked() {
+                                                new_proc = Some(proc);
+                                                self.show = false;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Show all processes with PIDs
+                                for (name, pid) in monitor.get_all_processes_with_pid() {
+                                    let display_text = format!("{} (PID: {})", name, pid);
+                                    if search_term.is_empty()
+                                        || display_text.to_lowercase().contains(&search_term)
+                                        || pid.to_string().contains(&search_term)
+                                    {
                                         if ui.button(&display_text).clicked() {
-                                            let identifier =
-                                                ProcessIdentifier::Pid(pid).to_string();
-                                            monitored_processes.push(identifier);
-                                            added_idx = Some(monitored_processes.len() - 1);
+                                            new_proc = Some(ProcessIdentifier::Pid(pid));
                                             self.show = false;
                                         }
                                     }
                                 }
                             }
-
-                            // Show all processes with PIDs
-                            for (name, pid) in monitor.get_all_processes_with_pid() {
-                                let display_text = format!("{} (PID: {})", name, pid);
-                                if search_term.is_empty()
-                                    || display_text.to_lowercase().contains(&search_term)
-                                    || pid.to_string().contains(&search_term)
-                                {
-                                    if ui.button(&display_text).clicked() {
-                                        let identifier = ProcessIdentifier::Pid(pid).to_string();
-                                        monitored_processes.push(identifier);
-                                        added_idx = Some(monitored_processes.len() - 1);
-                                        self.show = false;
-                                    }
-                                }
-                            }
                         } else {
                             // Original search by name
+                            let monitor = &app.metrics.read().unwrap().monitor;
                             let processes = monitor.get_all_processes();
                             for process_name in processes {
                                 if search_term.is_empty()
                                     || process_name.to_lowercase().contains(&search_term)
                                 {
                                     if ui.button(&process_name).clicked() {
-                                        let identifier =
-                                            ProcessIdentifier::Name(process_name).to_string();
-                                        if !monitored_processes.contains(&identifier) {
-                                            monitored_processes.push(identifier);
-                                            added_idx = Some(monitored_processes.len() - 1);
-                                        }
+                                        let identifier = ProcessIdentifier::Name(process_name);
+                                        new_proc = Some(identifier);
                                         self.show = false;
                                     }
                                 }
                             }
+                        }
+                        // add search proc
+                        if let Some(proc) = new_proc {
+                            app.add_monitored_proc(proc);
                         }
                     });
             });

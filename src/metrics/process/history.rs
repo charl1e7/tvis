@@ -140,28 +140,40 @@ impl ProcessHistory {
             .update_memory(memory_mb);
     }
 
-    pub fn get_process_cpu_history(&self, _idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories.get(pid).map(|metrics| metrics.get_cpu_history())
+    pub fn get_process_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.get_cpu_history())
     }
 
-    pub fn get_memory_history(&self, _idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories.get(pid).map(|metrics| metrics.get_memory_history())
+    pub fn get_memory_history(&self, pid: &Pid) -> Option<Vec<f32>> {
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.get_memory_history())
     }
 
     pub fn get_last_cpu(&self, _idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories.get(pid).map(|metrics| metrics.cpu.last_value())
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.cpu.last_value())
     }
 
     pub fn get_last_memory(&self, _idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories.get(pid).map(|metrics| metrics.memory.last_value())
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.memory.last_value())
     }
 
     pub fn get_peak_cpu(&self, _idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories.get(pid).map(|metrics| metrics.cpu.max_value())
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.cpu.max_value())
     }
 
     pub fn get_peak_memory(&self, _idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories.get(pid).map(|metrics| metrics.memory.max_value())
+        self.histories
+            .get(pid)
+            .map(|metrics| metrics.memory.max_value())
     }
 
     pub fn cleanup_histories(&mut self, _parent_idx: usize, active_pids: &[Pid]) {

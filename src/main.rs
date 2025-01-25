@@ -8,15 +8,10 @@ use tvis::ProcessMonitorApp;
 fn main() -> eframe::Result<()> {
     use tvis::metrics::{process::ProcessIdentifier, Metrics};
 
-
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .init();
-    let metrics = Metrics::new(1000, 5);
-    {
-        let mut metrics_clone = metrics.write().unwrap();
-        metrics_clone.add_selected_process(ProcessIdentifier::from("chrome.exe"));
-    }
+
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800.0, 600.0])

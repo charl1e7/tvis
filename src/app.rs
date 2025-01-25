@@ -1,7 +1,9 @@
 use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view::{self, state::ProcessView};
 use crate::components::settings::{show_settings_window, Settings};
-use crate::process::{MetricType, ProcessHistory, ProcessIdentifier, ProcessMonitor, SortType};
+use crate::metrics::process::{MetricType, ProcessIdentifier, SortType};
+use crate::metrics::{self, Metrics};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use sysinfo::Pid;
 
@@ -9,14 +11,12 @@ use sysinfo::Pid;
 #[serde(default)]
 pub struct ProcessMonitorApp {
     #[serde(skip)]
-    monitor: ProcessMonitor,
-    #[serde(skip)]
-    history: ProcessHistory,
-    monitored_processes: Vec<String>,
+    pub metrics: Arc<RwLock<Metrics>>,
+    monitored_processes: Vec<ProcessIdentifier>,
     #[serde(skip)]
     process_selector: ProcessSelector,
     settings: Settings,
-    active_process_idx: Option<usize>,
+    pub active_process: Option<ProcessIdentifier>,
     sort_type: SortType,
     #[serde(skip)]
     scroll_target: Option<Pid>,
@@ -27,15 +27,14 @@ impl Default for ProcessMonitorApp {
     fn default() -> Self {
         let settings = Settings::default();
         Self {
-            monitor: ProcessMonitor::new(Duration::from_millis(settings.update_interval_ms)),
-            history: ProcessHistory::new(settings.history_length),
             monitored_processes: Vec::new(),
             process_selector: ProcessSelector::default(),
             settings,
-            active_process_idx: None,
+            active_process: None,
             sort_type: SortType::default(),
             scroll_target: None,
             current_metric: MetricType::default(),
+            metrics: Metrics::new(1000, 10),
         }
     }
 }
@@ -43,81 +42,15 @@ impl Default for ProcessMonitorApp {
 impl ProcessMonitorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
-            let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-            // Update history size if it changed in settings
-            app.history = ProcessHistory::new(app.settings.history_length);
+            let app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            {
+                let mut metrics = app.metrics.write().unwrap();
+                metrics.history_len = app.settings.history_length;
+                metrics.update_interval = Duration::from_millis(app.settings.update_interval_ms);
+            }
             app
         } else {
             Default::default()
-        }
-    }
-
-    fn update_metrics(&mut self) {
-        // Update monitor interval if it changed in settings
-        let current_interval = Duration::from_millis(self.settings.update_interval_ms);
-        if self.monitor.update_interval() != current_interval {
-            self.monitor.set_update_interval(current_interval);
-        }
-
-        // Update history size if it changed
-        if self.history.history_max_points != self.settings.history_length {
-            self.history = ProcessHistory::new(self.settings.history_length);
-        }
-
-        if !self.monitor.should_update() {
-            return;
-        }
-
-        self.monitor.update();
-
-        // Pre-allocate with expected capacity
-        let mut all_active_pids = Vec::with_capacity(
-            self.monitored_processes
-                .iter()
-                .map(|identifier_str| {
-                    let identifier = ProcessIdentifier::from(identifier_str.as_str());
-                    self.monitor
-                        .get_basic_stats(&identifier)
-                        .map(|stats| stats.processes.len())
-                        .unwrap_or(0)
-                })
-                .sum(),
-        );
-
-        // Update histories for monitored processes
-        for (i, process_identifier) in self.monitored_processes.iter().enumerate() {
-            let identifier = ProcessIdentifier::from(process_identifier.as_str());
-            if let Some(stats) = self.monitor.get_basic_stats(&identifier) {
-                self.history.update_process_cpu(i, stats.current_cpu);
-                self.history.update_memory(i, stats.memory_mb);
-
-                all_active_pids.extend(stats.processes.iter().map(|process| {
-                    self.history
-                        .update_child_cpu(i, process.pid, process.cpu_usage);
-                    self.history
-                        .update_child_memory(i, process.pid, process.memory_mb);
-                    process.pid
-                }));
-            }
-        }
-
-        // Cleanup old child histories
-        for i in 0..self.monitored_processes.len() {
-            self.history.cleanup_child_histories(i, &all_active_pids);
-        }
-    }
-
-    fn remove_process(&mut self, idx: usize) {
-        self.monitored_processes.remove(idx);
-        self.history.remove_process(idx);
-
-        // Adjust active_process_idx if needed
-        if let Some(active_idx) = self.active_process_idx {
-            if active_idx > idx {
-                self.active_process_idx = Some(active_idx - 1);
-            } else if active_idx == idx {
-                self.active_process_idx = None;
-            }
         }
     }
 }
@@ -131,7 +64,6 @@ impl eframe::App for ProcessMonitorApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.settings.apply(ctx);
-        self.update_metrics();
 
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -151,8 +83,9 @@ impl eframe::App for ProcessMonitorApp {
                     .on_hover_text("Clear current process data")
                     .clicked()
                 {
-                    if let Some(idx) = self.active_process_idx {
-                        self.history.clear_process(idx);
+                    if let Some(identifier) = &self.active_process {
+                        let mut metrics = self.metrics.write().unwrap();
+                        metrics.clear_process_data(identifier);
                     }
                 }
             });
@@ -170,37 +103,30 @@ impl eframe::App for ProcessMonitorApp {
                 ui.add_space(4.0);
 
                 // Process selector
-                if let Some(added_idx) =
-                    self.process_selector
-                        .show(ui, &self.monitor, &mut self.monitored_processes)
-                {
-                    self.active_process_idx = Some(added_idx);
-                }
+                self.process_selector
+                    .show(ui, &self.monitor, &mut self.monitored_processes);
 
                 // Process list with remove buttons
                 let mut to_remove = None;
                 for (i, process) in self.monitored_processes.iter().enumerate() {
                     ui.horizontal(|ui| {
-                        let is_active = self.active_process_idx == Some(i);
+                        let is_active = self.active_process == Some(*process);
 
                         let response = ui.selectable_label(is_active, process);
                         if response.clicked() {
-                            self.active_process_idx = Some(i);
+                            self.active_process = Some(*process);
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("❌").clicked() {
-                                to_remove = Some(i);
-                                if self.active_process_idx == Some(i) {
-                                    self.active_process_idx = None;
+                                if self.active_process == Some(*process) {
+                                    self.active_process = None;
                                 }
+                                let mut metrics = self.metrics.write().unwrap();
+                                metrics.remove_selected_process(process);
                             }
                         });
                     });
-                }
-
-                if let Some(idx) = to_remove {
-                    self.remove_process(idx);
                 }
             });
 
@@ -208,34 +134,18 @@ impl eframe::App for ProcessMonitorApp {
             ui.heading("Process Monitor");
 
             // Display process information
-            if let Some(idx) = self.active_process_idx {
-                if let Some(process_identifier) = self.monitored_processes.get(idx) {
-                    let identifier = ProcessIdentifier::from(process_identifier.as_str());
-                    if let Some(stats) =
-                        self.monitor
-                            .get_process_stats(&identifier, &self.history, idx)
-                    {
-                        let mut state = ProcessView {
-                            stats,
-                            history: &self.history,
-                            process_idx: idx,
-                            sort_type: self.sort_type,
-                            current_metric: &mut self.current_metric,
-                            scroll_target: &mut self.scroll_target,
-                        };
-                        process_view::show_process(
-                            ui,
-                            process_identifier,
-                            &mut state,
-                            &self.settings,
-                        );
-                        self.sort_type = state.sort_type;
-                    } else {
-                        ui.group(|ui| {
-                            ui.heading(process_identifier);
-                            ui.label("Process not found");
-                        });
-                    }
+            if let Some(identifier) = self.active_process {
+                let monitored_processes = {
+                    let metrics = self.metrics.read().unwrap();
+                    metrics.get_process_data(&identifier)
+                };
+                if let Some(process_identifier) = monitored_processes {
+                    process_view::show_process(ui, process_identifier, ъ);
+                } else {
+                    ui.group(|ui| {
+                        ui.heading(identifier.to_string());
+                        ui.label("Process not found");
+                    });
                 }
             } else if !self.monitored_processes.is_empty() {
                 ui.label("Select a process from the list to view details");
@@ -244,5 +154,15 @@ impl eframe::App for ProcessMonitorApp {
 
         // Change mode rendering
         ctx.request_repaint();
+    }
+}
+
+impl ProcessMonitorApp {
+    pub fn add_monitored_proc(&mut self, proc: ProcessIdentifier) {
+        if !self.monitored_processes.contains(&proc) {
+            self.monitored_processes.push(proc.clone());
+            self.active_process = Some(proc.clone());
+            self.metrics.write().unwrap().add_selected_process(proc);
+        }
     }
 }

@@ -1,14 +1,24 @@
+use super::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessStats};
+use log::info;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
-use log::info;
 use sysinfo::{Process, System};
-use super::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessStats};
 
 #[derive(Debug)]
 pub struct ProcessMonitor {
     pub system: System,
     last_update: Instant,
     update_interval: Duration,
+}
+
+impl Default for ProcessMonitor {
+    fn default() -> Self {
+        Self {
+            system: System::new_all(),
+            last_update: Instant::now(),
+            update_interval: Duration::from_millis(1000),
+        }
+    }
 }
 
 impl ProcessMonitor {

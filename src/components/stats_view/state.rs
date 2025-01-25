@@ -1,4 +1,4 @@
-use crate::process::ProcessStats;
+use crate::metrics::process::ProcessStats;
 
 pub struct StatsView {
     pub stats: ProcessStats,

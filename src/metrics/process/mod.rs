@@ -3,8 +3,7 @@ mod monitor;
 
 pub use history::*;
 pub use monitor::*;
-
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default)]
 pub struct ProcessData {
@@ -12,11 +11,35 @@ pub struct ProcessData {
     pub stats: ProcessStats,
 }
 
-
-#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ProcessIdentifier {
     Name(String),
+    #[serde(serialize_with = "serialize_pid", deserialize_with = "deserialize_pid")]
     Pid(sysinfo::Pid),
+}
+
+impl ProcessIdentifier {
+    pub fn to_pid(&self) -> Option<sysinfo::Pid> {
+        match self {
+            ProcessIdentifier::Pid(pid) => Some(*pid),
+            ProcessIdentifier::Name(_) => None,
+        }
+    }
+}
+
+fn serialize_pid<S>(pid: &sysinfo::Pid, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_u32(pid.as_u32())
+}
+
+fn deserialize_pid<'de, D>(deserializer: D) -> Result<sysinfo::Pid, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let pid = u32::deserialize(deserializer)?;
+    Ok(sysinfo::Pid::from(pid as usize))
 }
 
 impl From<&str> for ProcessIdentifier {
