@@ -19,9 +19,9 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn new(update_interval_ms: u64, history_len: usize) -> Arc<RwLock<Self>> {
+    pub fn new(history_len: usize, update_interval_ms: usize) -> Arc<RwLock<Self>> {
         let metrics = Arc::new(RwLock::new(Self {
-            update_interval: Duration::from_millis(update_interval_ms),
+            update_interval: Duration::from_millis(update_interval_ms as u64),
             history_len,
             processes: HashMap::new(),
             ..Default::default()
@@ -29,12 +29,15 @@ impl Metrics {
 
         let metrics_clone = Arc::clone(&metrics);
         thread::spawn(move || loop {
-            let mut metrics = metrics_clone.write().unwrap();
-            metrics.monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms));
-            metrics.update_metrics();
-
-            info!("Updated Metrics: {:#?}", metrics);
-            thread::sleep(metrics.update_interval);
+            let mut update_interval = Duration::default();
+            {
+                let mut metrics = metrics_clone.write().unwrap();
+                metrics.monitor =
+                    ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
+                metrics.update_metrics();
+                update_interval = metrics.update_interval;
+            }
+            thread::sleep(update_interval);
         });
 
         metrics

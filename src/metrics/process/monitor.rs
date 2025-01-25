@@ -219,12 +219,12 @@ impl ProcessMonitor {
 
         // Calculate historical stats
         for process in &processes {
-            if let Some(cpu_history) = history.get_process_cpu_history(_process_idx, &process.pid) {
+            if let Some(cpu_history) = history.get_process_cpu_history(&process.pid) {
                 let (avg, peak) = Self::calculate_history_stats(&cpu_history);
                 avg_cpu = avg_cpu.max(avg);
                 peak_cpu = peak_cpu.max(peak);
             }
-            if let Some(memory_history) = history.get_memory_history(_process_idx, &process.pid) {
+            if let Some(memory_history) = history.get_memory_history(&process.pid) {
                 let (_, peak) = Self::calculate_history_stats(&memory_history);
                 peak_memory_mb = peak_memory_mb.max(peak);
             }

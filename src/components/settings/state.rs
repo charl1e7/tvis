@@ -3,7 +3,7 @@ pub struct Settings {
     pub scale: f32,
     pub font_size: f32,
     pub graph_scale_margin: f32,
-    pub update_interval_ms: u64,
+    pub update_interval_ms: usize,
     pub history_length: usize,
     #[serde(skip)]
     show_window: bool,

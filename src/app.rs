@@ -5,16 +5,18 @@ use crate::metrics::process::{MetricType, ProcessIdentifier, SortType};
 use crate::metrics::{self, Metrics};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use log::info;
 use sysinfo::Pid;
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Default)]
 #[serde(default)]
 pub struct ProcessMonitorApp {
     #[serde(skip)]
     pub metrics: Arc<RwLock<Metrics>>,
-    monitored_processes: Vec<ProcessIdentifier>,
+    pub monitored_processes: Vec<ProcessIdentifier>,
     #[serde(skip)]
-    process_selector: ProcessSelector,
+    pub process_selector: ProcessSelector,
+    pub process_view: ProcessView,
     settings: Settings,
     pub active_process: Option<ProcessIdentifier>,
     sort_type: SortType,
@@ -23,34 +25,23 @@ pub struct ProcessMonitorApp {
     current_metric: MetricType,
 }
 
-impl Default for ProcessMonitorApp {
-    fn default() -> Self {
-        let settings = Settings::default();
-        Self {
-            monitored_processes: Vec::new(),
-            process_selector: ProcessSelector::default(),
-            settings,
-            active_process: None,
-            sort_type: SortType::default(),
-            scroll_target: None,
-            current_metric: MetricType::default(),
-            metrics: Metrics::new(1000, 10),
-        }
-    }
-}
-
 impl ProcessMonitorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
-            let app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let metrics = Metrics::new(app.settings.history_length, app.settings.update_interval_ms);
             {
-                let mut metrics = app.metrics.write().unwrap();
-                metrics.history_len = app.settings.history_length;
-                metrics.update_interval = Duration::from_millis(app.settings.update_interval_ms);
+                app.metrics = metrics;
+                for process in app.monitored_processes.clone() {
+                    app.metrics.write().unwrap().add_selected_process(process);
+                }
             }
             app
         } else {
-            Default::default()
+            ProcessMonitorApp {
+                metrics: Metrics::new(100, 10000),
+                ..Default::default()
+            }
         }
     }
 }
@@ -93,6 +84,7 @@ impl eframe::App for ProcessMonitorApp {
 
         show_settings_window(ctx, &mut self.settings);
 
+        // let mut to_remove = None;
         egui::SidePanel::left("process_list")
             .resizable(true)
             .min_width(150.0)
@@ -103,23 +95,23 @@ impl eframe::App for ProcessMonitorApp {
                 ui.add_space(4.0);
 
                 // Process selector
-                self.process_selector
-                    .show(ui, &self.monitor, &mut self.monitored_processes);
+                if let Some(proc) = self.process_selector.show(ui, self.metrics.clone()) {
+                    self.add_monitored_proc(proc);
+                };
 
                 // Process list with remove buttons
-                let mut to_remove = None;
                 for (i, process) in self.monitored_processes.iter().enumerate() {
                     ui.horizontal(|ui| {
-                        let is_active = self.active_process == Some(*process);
+                        let is_active = self.active_process.as_ref() == Some(process);
 
-                        let response = ui.selectable_label(is_active, process);
+                        let response = ui.selectable_label(is_active, process.to_string());
                         if response.clicked() {
-                            self.active_process = Some(*process);
+                            self.active_process = Some(process.clone());
                         }
 
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             if ui.small_button("❌").clicked() {
-                                if self.active_process == Some(*process) {
+                                if self.active_process.as_ref() == Some(process) {
                                     self.active_process = None;
                                 }
                                 let mut metrics = self.metrics.write().unwrap();
@@ -134,13 +126,18 @@ impl eframe::App for ProcessMonitorApp {
             ui.heading("Process Monitor");
 
             // Display process information
-            if let Some(identifier) = self.active_process {
+            if let Some(identifier) = &self.active_process {
                 let monitored_processes = {
-                    let metrics = self.metrics.read().unwrap();
-                    metrics.get_process_data(&identifier)
+                    self.metrics
+                        .read()
+                        .unwrap()
+                        .get_process_data(identifier)
+                        .cloned()
                 };
                 if let Some(process_identifier) = monitored_processes {
-                    process_view::show_process(ui, process_identifier, ъ);
+                    &self
+                        .process_view
+                        .show_process(ui, &process_identifier, &self.settings);
                 } else {
                     ui.group(|ui| {
                         ui.heading(identifier.to_string());

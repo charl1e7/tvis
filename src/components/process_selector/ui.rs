@@ -8,7 +8,11 @@ use crate::{
 use super::state::ProcessSelector;
 
 impl ProcessSelector {
-    pub fn show(&mut self, ui: &mut egui::Ui, app: &mut ProcessMonitorApp) -> Option<usize> {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        metrics: Arc<RwLock<Metrics>>,
+    ) -> Option<ProcessIdentifier> {
         if !self.show {
             if ui.button("Add Process").clicked() {
                 self.show = true;
@@ -17,7 +21,7 @@ impl ProcessSelector {
             return None;
         }
 
-        let mut added_idx = None;
+        let mut new_proc = None;
 
         egui::Window::new("Select Process")
             .collapsible(false)
@@ -45,11 +49,10 @@ impl ProcessSelector {
                     .max_height(300.0)
                     .show(ui, |ui| {
                         let search_term = self.search.to_lowercase();
-                        let mut new_proc = None;
                         if self.search_by_pid {
                             // Search by PID
                             {
-                                let monitor = &app.metrics.read().unwrap().monitor;
+                                let monitor = &metrics.read().unwrap().monitor;
                                 if !search_term.is_empty() {
                                     let proc = ProcessIdentifier::from(search_term.as_str());
                                     if let Some(pid) = proc.to_pid() {
@@ -80,7 +83,7 @@ impl ProcessSelector {
                             }
                         } else {
                             // Original search by name
-                            let monitor = &app.metrics.read().unwrap().monitor;
+                            let monitor = &metrics.read().unwrap().monitor;
                             let processes = monitor.get_all_processes();
                             for process_name in processes {
                                 if search_term.is_empty()
@@ -94,13 +97,9 @@ impl ProcessSelector {
                                 }
                             }
                         }
-                        // add search proc
-                        if let Some(proc) = new_proc {
-                            app.add_monitored_proc(proc);
-                        }
                     });
             });
 
-        added_idx
+        new_proc
     }
 }
