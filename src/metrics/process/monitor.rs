@@ -162,7 +162,7 @@ impl ProcessMonitor {
             pid: process.pid(),
             parent_pid: process.parent(),
             cpu_usage: process.cpu_usage(),
-            memory_mb: process.memory() as f32 / 1024.0,
+            memory_mb: process.memory() as f32 / (1024.0 * 1024.0),
             is_thread: process.name().to_string_lossy().contains("Thread"),
         }
     }

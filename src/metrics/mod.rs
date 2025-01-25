@@ -31,11 +31,21 @@ impl Metrics {
         thread::spawn(move || loop {
             let mut update_interval = Duration::default();
             {
-                let mut metrics = metrics_clone.write().unwrap();
-                metrics.monitor =
-                    ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
+                let mut metrics_read = metrics_clone.read().unwrap();
+                update_interval = metrics_read.update_interval;
+                let mut metrics = Metrics {
+                    monitored_processes: metrics_read.monitored_processes.clone(),
+                    processes: metrics_read.processes.clone(),
+                    monitor: ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64)),
+                    update_interval: update_interval,
+                    history_len: metrics_read.history_len,
+                };
+                drop(metrics_read);
                 metrics.update_metrics();
-                update_interval = metrics.update_interval;
+                let mut metrics_write = metrics_clone.write().unwrap();
+                metrics_write.processes = metrics.processes;
+                metrics_write.monitor = metrics.monitor;
+                drop(metrics_write);
             }
             thread::sleep(update_interval);
         });
@@ -88,6 +98,7 @@ impl Metrics {
     fn update_metrics(&mut self) {
         for process_identifier in &self.monitored_processes {
             if let Some(stats) = self.monitor.get_basic_stats(&process_identifier) {
+                info!("stats: {:#?}", stats);
                 if let Some(process_data) = self.processes.get_mut(process_identifier) {
                     // Update history size if it changed
                     if process_data.history.history_len != self.history_len {

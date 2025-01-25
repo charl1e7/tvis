@@ -73,13 +73,19 @@ impl CircularBuffer {
         }
         self.sum += value;
 
+        // Update the old value before checking if we need to recalculate peak
+        let old_value = self.data[self.position];
         self.data[self.position] = value;
         self.position = (self.position + 1) % self.data.len();
 
+        // Update peak value if:
+        // 1. New value is higher than current peak
+        // 2. We just overwrote the peak value
+        // 3. Peak value is no longer in our window
         if value > self.peak_value {
             self.peak_value = value;
-        } else if self.peak_value == self.data[self.position] {
-            self.peak_value = self.data.iter().copied().fold(0.0, f32::max);
+        } else if self.peak_value == old_value || self.peak_value > self.data.iter().copied().fold(0.0, f32::max) {
+            self.peak_value = self.data[..self.len].iter().copied().fold(0.0, f32::max);
         }
     }
 

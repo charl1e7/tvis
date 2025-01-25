@@ -4,6 +4,7 @@ use crate::components::settings::{show_settings_window, Settings};
 use crate::metrics::process::{MetricType, ProcessIdentifier, SortType};
 use crate::metrics::{self, Metrics};
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time::Duration;
 use log::info;
 use sysinfo::Pid;
@@ -27,6 +28,10 @@ pub struct ProcessMonitorApp {
 
 impl ProcessMonitorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        return ProcessMonitorApp {
+            metrics: Metrics::new(10, 3000),
+            ..Default::default()
+        };
         if let Some(storage) = cc.storage {
             let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             let metrics = Metrics::new(app.settings.history_length, app.settings.update_interval_ms);
