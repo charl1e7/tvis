@@ -4,6 +4,15 @@ mod monitor;
 pub use history::*;
 pub use monitor::*;
 
+
+
+#[derive(Debug, Clone, Default)]
+pub struct ProcessData {
+    pub history: ProcessHistory,
+    pub stats: ProcessStats,
+}
+
+
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd, Ord)]
 pub enum ProcessIdentifier {
     Name(String),

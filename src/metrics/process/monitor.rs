@@ -104,39 +104,40 @@ impl ProcessMonitor {
                 let mut all_processes = Vec::new();
                 let mut seen_pids = HashSet::new();
                 let mut thread_count = 0;
-                
-                // Collect parent processes
-                let parent_pids: Vec<_> = self
+
+                let matching_pids: Vec<_> = self
                     .system
                     .processes()
-                    .values()
-                    .filter(|p| p.name().to_string_lossy() == name.as_str())
-                    .map(|p| p.pid())
+                    .iter()
+                    .filter(|(_, p)| p.name().to_string_lossy() == *name)
+                    .map(|(pid, _)| *pid)
                     .collect();
 
-                if parent_pids.is_empty() {
+                if matching_pids.is_empty() {
                     return None;
                 }
 
-                for pid in &parent_pids {
-                    if let Some(process) = self.system.processes().get(pid) {
-                        seen_pids.insert(*pid);
-                        let info = self.collect_process_info(process);
-                        if info.is_thread {
-                            thread_count += 1;
-                        }
-                        all_processes.push(info);
-                    }
-                }
+                for pid in &matching_pids {
+                    if !seen_pids.contains(pid) {
+                        if let Some(process) = self.system.processes().get(pid) {
+                            seen_pids.insert(*pid);
+                            let info = self.collect_process_info(process);
+                            if info.is_thread {
+                                thread_count += 1;
+                            }
+                            all_processes.push(info);
 
-                let child_pids = self.collect_child_pids(&parent_pids, &mut seen_pids);
-                for pid in child_pids {
-                    if let Some(process) = self.system.processes().get(&pid) {
-                        let info = self.collect_process_info(process);
-                        if info.is_thread {
-                            thread_count += 1;
+                            let child_pids = self.collect_child_pids(&[*pid], &mut seen_pids);
+                            for child_pid in child_pids {
+                                if let Some(process) = self.system.processes().get(&child_pid) {
+                                    let info = self.collect_process_info(process);
+                                    if info.is_thread {
+                                        thread_count += 1;
+                                    }
+                                    all_processes.push(info);
+                                }
+                            }
                         }
-                        all_processes.push(info);
                     }
                 }
 
@@ -146,27 +147,13 @@ impl ProcessMonitor {
     }
 
     fn collect_process_info(&self, process: &Process) -> ProcessInfo {
-        let is_thread = process.thread_kind().is_some();
-
-        let memory_mb = if is_thread {
-            0.0
-        } else {
-            process.memory() as f32 / 1024.0 / 1024.0
-        };
-
-        let name = if is_thread {
-            format!("{} (thread)", process.name().to_string_lossy())
-        } else {
-            process.name().to_string_lossy().into_owned()
-        };
-
         ProcessInfo {
-            name,
+            name: process.name().to_string_lossy().into_owned(),
             pid: process.pid(),
             parent_pid: process.parent(),
             cpu_usage: process.cpu_usage(),
-            memory_mb,
-            is_thread,
+            memory_mb: process.memory() as f32 / 1024.0,
+            is_thread: process.name().to_string_lossy().contains("Thread"),
         }
     }
 
@@ -176,77 +163,69 @@ impl ProcessMonitor {
         seen_pids: &mut HashSet<sysinfo::Pid>,
     ) -> Vec<sysinfo::Pid> {
         let mut child_pids = Vec::new();
-
-        for process in self.system.processes().values() {
-            if let Some(parent_pid) = process.parent() {
-                if parent_pids.contains(&parent_pid) && !seen_pids.contains(&process.pid()) {
-                    seen_pids.insert(process.pid());
-                    child_pids.push(process.pid());
-                    let grandchild_pids = self.collect_child_pids(&[process.pid()], seen_pids);
-                    child_pids.extend(grandchild_pids);
+        for (pid, process) in self.system.processes() {
+            if !seen_pids.contains(pid) {
+                if let Some(parent) = process.parent() {
+                    if parent_pids.contains(&parent) {
+                        seen_pids.insert(*pid);
+                        child_pids.push(*pid);
+                        // Recursively collect children of this process
+                        let grandchildren = self.collect_child_pids(&[*pid], seen_pids);
+                        child_pids.extend(grandchildren);
+                    }
                 }
             }
         }
-
         child_pids
     }
 
     fn calculate_stats(processes: &[ProcessInfo]) -> (f32, f32) {
-        processes
-            .iter()
-            .filter(|p| !p.is_thread) // Only include non-thread processes
-            .fold((0.0, 0.0), |(cpu, mem), p| {
-                (cpu + p.cpu_usage, mem + p.memory_mb)
-            })
+        let total_cpu: f32 = processes.iter().map(|p| p.cpu_usage).sum();
+        let total_memory: f32 = processes.iter().map(|p| p.memory_mb).sum();
+        (total_cpu, total_memory)
     }
 
     fn calculate_history_stats(history: &[f32]) -> (f32, f32) {
-        let mut max = 0.0f32;
-        let mut sum = 0.0f32;
-        for &v in history {
-            max = max.max(v);
-            sum += v;
+        if history.is_empty() {
+            return (0.0, 0.0);
         }
-        (max, sum / history.len() as f32)
+        let avg = history.iter().sum::<f32>() / history.len() as f32;
+        let peak = history.iter().copied().fold(0.0, f32::max);
+        (avg, peak)
     }
 
     pub fn get_process_stats(
         &self,
         identifier: &ProcessIdentifier,
         history: &ProcessHistory,
-        process_idx: usize,
+        _process_idx: usize,
     ) -> Option<ProcessStats> {
         let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
 
-        // Get the main process PID
-        let main_pid = match identifier {
-            ProcessIdentifier::Pid(pid) => *pid,
-            ProcessIdentifier::Name(name) => {
-                self.system
-                    .processes()
-                    .values()
-                    .find(|p| p.name().to_string_lossy() == name.as_str())
-                    .map(|p| p.pid())?
+        let mut peak_cpu = current_cpu;
+        let mut peak_memory_mb = memory_mb;
+        let mut avg_cpu = current_cpu;
+
+        // Calculate historical stats
+        for process in &processes {
+            if let Some(cpu_history) = history.get_process_cpu_history(_process_idx, &process.pid) {
+                let (avg, peak) = Self::calculate_history_stats(&cpu_history);
+                avg_cpu = avg_cpu.max(avg);
+                peak_cpu = peak_cpu.max(peak);
             }
-        };
-
-        let (peak_cpu, avg_cpu) = history
-            .get_process_cpu_history(process_idx, &main_pid)
-            .map(|h| Self::calculate_history_stats(h.as_slice()))
-            .unwrap_or((current_cpu, current_cpu));
-
-        let peak_memory = history
-            .get_memory_history(process_idx, &main_pid)
-            .map(|h| h.iter().copied().fold(0.0, f32::max))
-            .unwrap_or(memory_mb);
+            if let Some(memory_history) = history.get_memory_history(_process_idx, &process.pid) {
+                let (_, peak) = Self::calculate_history_stats(&memory_history);
+                peak_memory_mb = peak_memory_mb.max(peak);
+            }
+        }
 
         Some(ProcessStats {
             current_cpu,
             avg_cpu,
             peak_cpu,
             memory_mb,
-            peak_memory_mb: peak_memory,
+            peak_memory_mb,
             processes,
             thread_count,
         })
@@ -259,14 +238,14 @@ impl ProcessMonitor {
                 .system
                 .processes()
                 .values()
-                .any(|p| p.name().to_string_lossy() == name.as_str()),
+                .any(|p| p.name().to_string_lossy() == *name),
         }
     }
 
-    /// Gets basic statistics for a process without requiring history
     pub fn get_basic_stats(&self, identifier: &ProcessIdentifier) -> Option<ProcessStats> {
         let (processes, thread_count) = self.collect_processes(identifier)?;
         let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
+
         Some(ProcessStats {
             current_cpu,
             avg_cpu: current_cpu,

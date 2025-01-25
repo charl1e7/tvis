@@ -5,7 +5,7 @@ use sysinfo::Pid;
 #[derive(Default, Debug, Clone)]
 pub struct ProcessHistory {
     /// Groups process metrics with its children
-    histories: Vec<HashMap<Pid, ProcessMetrics>>,
+    histories: HashMap<Pid, ProcessMetrics>,
     /// Maximum number of data points to store in history
     pub history_len: usize,
 }
@@ -106,104 +106,65 @@ impl CircularBuffer {
 
     /// Returns the last value in the buffer
     pub fn last_value(&self) -> f32 {
-        if self.position == 0 {
-            self.data[self.data.len() - 1]
-        } else {
-            self.data[self.position - 1]
+        if self.len == 0 {
+            return 0.0;
         }
+        let pos = if self.position == 0 {
+            self.data.len() - 1
+        } else {
+            self.position - 1
+        };
+        self.data[pos]
     }
 }
-
 
 impl ProcessHistory {
     pub fn new(max_points: usize) -> Self {
         Self {
-            histories: Vec::new(),
+            histories: HashMap::new(),
             history_len: max_points,
         }
     }
 
-    fn ensure_process_exists(&mut self, process_idx: usize) {
-        if process_idx >= self.histories.len() {
-            self.histories.resize_with(process_idx + 1, || {
-                HashMap::new()
-            });
-        }
-    }
-
-    pub fn update_process_cpu(&mut self, process_idx: usize, pid: Pid, cpu_usage: f32) {
-        self.ensure_process_exists(process_idx);
-        self.histories[process_idx]
+    pub fn update_process_cpu(&mut self, _process_idx: usize, pid: Pid, cpu_usage: f32) {
+        self.histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_len))
             .update_cpu(cpu_usage);
     }
 
-    pub fn update_memory(&mut self, process_idx: usize, pid: Pid, memory_mb: f32) {
-        self.ensure_process_exists(process_idx);
-        self.histories[process_idx]
+    pub fn update_memory(&mut self, _process_idx: usize, pid: Pid, memory_mb: f32) {
+        self.histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_len))
             .update_memory(memory_mb);
     }
 
-    pub fn get_process_cpu_history(&self, idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.get_cpu_history())
+    pub fn get_process_cpu_history(&self, _idx: usize, pid: &Pid) -> Option<Vec<f32>> {
+        self.histories.get(pid).map(|metrics| metrics.get_cpu_history())
     }
 
-    pub fn get_memory_history(&self, idx: usize, pid: &Pid) -> Option<Vec<f32>> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.get_memory_history())
+    pub fn get_memory_history(&self, _idx: usize, pid: &Pid) -> Option<Vec<f32>> {
+        self.histories.get(pid).map(|metrics| metrics.get_memory_history())
     }
 
-    pub fn get_last_cpu(&self, idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.cpu.last_value())
+    pub fn get_last_cpu(&self, _idx: usize, pid: &Pid) -> Option<f32> {
+        self.histories.get(pid).map(|metrics| metrics.cpu.last_value())
     }
 
-    pub fn get_last_memory(&self, idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.memory.last_value())
+    pub fn get_last_memory(&self, _idx: usize, pid: &Pid) -> Option<f32> {
+        self.histories.get(pid).map(|metrics| metrics.memory.last_value())
     }
 
-    pub fn get_peak_cpu(&self, idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.cpu.max_value())
+    pub fn get_peak_cpu(&self, _idx: usize, pid: &Pid) -> Option<f32> {
+        self.histories.get(pid).map(|metrics| metrics.cpu.max_value())
     }
 
-    pub fn get_peak_memory(&self, idx: usize, pid: &Pid) -> Option<f32> {
-        self.histories
-            .get(idx)
-            .and_then(|h| h.get(pid))
-            .map(|h| h.memory.max_value())
+    pub fn get_peak_memory(&self, _idx: usize, pid: &Pid) -> Option<f32> {
+        self.histories.get(pid).map(|metrics| metrics.memory.max_value())
     }
 
-    pub fn cleanup_histories(&mut self, parent_idx: usize, active_pids: &[Pid]) {
-        if let Some(group) = self.histories.get_mut(parent_idx) {
-            group.retain(|pid, _| active_pids.contains(pid));
-        }
-    }
-
-    pub fn remove_process(&mut self, idx: usize) {
-        if idx < self.histories.len() {
-            self.histories.remove(idx);
-        }
-    }
-
-    pub fn clear_process(&mut self, idx: usize) {
-        if idx < self.histories.len() {
-            self.histories[idx] = HashMap::new();
-        }
+    pub fn cleanup_histories(&mut self, _parent_idx: usize, active_pids: &[Pid]) {
+        self.histories.retain(|pid, _| active_pids.contains(pid));
     }
 }

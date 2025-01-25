@@ -1,6 +1,7 @@
+use eframe::wgpu::core::identity;
 use log::info;
 pub mod process;
-use process::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessMonitor};
+use process::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessMonitor, ProcessData, ProcessStats};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -11,7 +12,7 @@ use sysinfo::{Pid, System};
 #[derive(Debug, Clone, Default)]
 pub struct Metrics {
     monitored_processes: Vec<ProcessIdentifier>,
-    history: ProcessHistory,
+    processes: HashMap<ProcessIdentifier, ProcessData>,
     update_interval: Duration,
     history_len: usize,
 }
@@ -21,7 +22,7 @@ impl Metrics {
         let metrics = Arc::new(RwLock::new(Self {
             update_interval: Duration::from_millis(update_interval_ms),
             history_len,
-            history: ProcessHistory::new(history_len),
+            processes: HashMap::new(),
             ..Default::default()    
         }));
 
@@ -30,10 +31,6 @@ impl Metrics {
             loop {
                 let monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms));
                 let mut metrics = metrics_clone.write().unwrap();
-                // Update history size if it changed
-                if metrics.history.history_len != metrics.history_len {
-                    metrics.history = ProcessHistory::new(metrics.history_len);
-                }
 
                 metrics.update_metrics(&monitor);
                 
@@ -47,7 +44,11 @@ impl Metrics {
 
     pub fn add_selected_process(&mut self, identifier: ProcessIdentifier) {
         if !self.monitored_processes.contains(&identifier) {
-            self.monitored_processes.push(identifier);
+            self.monitored_processes.push(identifier.clone());
+            self.processes.entry(identifier).or_insert_with(|| ProcessData {
+                history: ProcessHistory::new(self.history_len),
+                stats: ProcessStats::default(),
+            });
         }
     }
 
@@ -58,6 +59,7 @@ impl Metrics {
             .position(|x| x == identifier)
         {
             self.monitored_processes.remove(pos);
+            self.processes.remove(identifier);
         }
     }
 
@@ -70,18 +72,23 @@ impl Metrics {
     }
 
     fn update_metrics(&mut self, monitor: &ProcessMonitor) {
-        let mut all_active_pids = Vec::new();
-        
-        for (i, process_identifier) in self.monitored_processes.iter().enumerate() {
+        for process_identifier in &self.monitored_processes {
             if let Some(stats) = monitor.get_basic_stats(&process_identifier) {
-                all_active_pids.extend(stats.processes.iter().map(|process| {
-                    self.history.update_process_cpu(i, process.pid, process.cpu_usage);
-                    self.history.update_memory(i, process.pid, process.memory_mb);
-                    process.pid
-                }));
-                
-                // Cleanup old processes that are no longer active
-                self.history.cleanup_histories(i, &all_active_pids);
+                if let Some(process_data) = self.processes.get_mut(process_identifier) {
+                    // Update history size if it changed
+                    if process_data.history.history_len != self.history_len {
+                        process_data.history = ProcessHistory::new(self.history_len);
+                    }
+                    
+                    // Update process data
+                    process_data.stats = stats.clone();
+                    for process in &stats.processes {
+                        process_data.history.update_process_cpu(0, process.pid, process.cpu_usage);
+                        process_data.history.update_memory(0, process.pid, process.memory_mb);
+                    }
+                }
+            } else {
+                self.processes.remove(process_identifier);
             }
         }
     }
