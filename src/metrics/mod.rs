@@ -80,12 +80,18 @@ impl Metrics {
                         process_data.history = ProcessHistory::new(self.history_len);
                     }
                     
+                    // Collect active PIDs
+                    let active_pids: Vec<_> = stats.processes.iter().map(|p| p.pid).collect();
+                    
                     // Update process data
                     process_data.stats = stats.clone();
                     for process in &stats.processes {
                         process_data.history.update_process_cpu(0, process.pid, process.cpu_usage);
                         process_data.history.update_memory(0, process.pid, process.memory_mb);
                     }
+                    
+                    // Remove inactive processes from history
+                    process_data.history.cleanup_histories(0, &active_pids);
                 }
             } else {
                 self.processes.remove(process_identifier);
