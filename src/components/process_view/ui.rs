@@ -11,11 +11,12 @@ impl ProcessView {
     pub fn show_process(
         &mut self,
         ui: &mut egui::Ui,
+        process_identifier: &ProcessIdentifier,
         process_data: &ProcessData,
         settings: &Settings,
     ) {
         ui.group(|ui| {
-            ui.heading("process.to_string()");
+            ui.heading(process_identifier.to_string());
 
             stats_view::show_process_stats(ui, &process_data.stats);
             // Metric toggle button
@@ -147,7 +148,7 @@ impl ProcessView {
                         .id_salt(scroll_area_id);
 
                     scroll.show(ui, |ui| {
-                        for process in &processes {
+                        for process in processes {
                             let response = ui.group(|ui| {
                                 let avg_cpu = process_data
                                     .history
@@ -155,7 +156,11 @@ impl ProcessView {
                                     .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                     .unwrap_or(0.0);
 
-                                ui.heading(&process.name);
+                                if process.is_thread {
+                                    ui.heading(&format!("{} (Thread)", process.name));
+                                } else {
+                                    ui.heading(&process.name);
+                                }
                                 ui.horizontal(|ui| {
                                     ui.label(format!("PID: {}", process.pid));
                                     ui.label(" | ");
