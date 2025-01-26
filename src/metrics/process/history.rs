@@ -84,7 +84,9 @@ impl CircularBuffer {
         // 3. Peak value is no longer in our window
         if value > self.peak_value {
             self.peak_value = value;
-        } else if self.peak_value == old_value || self.peak_value > self.data.iter().copied().fold(0.0, f32::max) {
+        } else if self.peak_value == old_value
+            || self.peak_value > self.data.iter().copied().fold(0.0, f32::max)
+        {
             self.peak_value = self.data[..self.len].iter().copied().fold(0.0, f32::max);
         }
     }

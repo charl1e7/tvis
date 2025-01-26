@@ -28,40 +28,39 @@ impl Metrics {
         }));
 
         let metrics_clone = Arc::clone(&metrics);
+        let mut update_interval = Duration::from_millis(3000);
+        let mut metrics_thread = Metrics {
+            monitor: ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64)),
+            update_interval: update_interval,
+            history_len: 10,
+            ..Default::default()
+        };
+        thread::sleep(update_interval);
         thread::spawn(move || loop {
-            let mut update_interval = Duration::default();
+
             {
-                let mut metrics_read = metrics_clone.read().unwrap();
+                let metrics_read = metrics_clone.read().unwrap();
                 update_interval = metrics_read.update_interval;
-                let mut metrics = Metrics {
-                    monitored_processes: metrics_read.monitored_processes.clone(),
-                    processes: metrics_read.processes.clone(),
-                    monitor: ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64)),
-                    update_interval: update_interval,
-                    history_len: metrics_read.history_len,
-                };
-                drop(metrics_read);
-                metrics.update_metrics();
-                let mut metrics_write = metrics_clone.write().unwrap();
-                metrics_write.processes = metrics.processes;
-                metrics_write.monitor = metrics.monitor;
-                drop(metrics_write);
+                metrics_thread.update_interval = metrics_read.update_interval;
+                metrics_thread.history_len = metrics_read.history_len;
+                metrics_thread.monitored_processes = metrics_read.monitored_processes.clone();
             }
+            {
+                metrics_thread.update_metrics();
+                let mut metrics_write = metrics_clone.write().unwrap();
+                metrics_write.processes = metrics_thread.processes.clone();
+            }
+            metrics_thread.monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
             thread::sleep(update_interval);
+            metrics_thread.monitor.update();
         });
 
-        metrics
+        metrics.clone()
     }
 
     pub fn add_selected_process(&mut self, identifier: ProcessIdentifier) {
         if !self.monitored_processes.contains(&identifier) {
             self.monitored_processes.push(identifier.clone());
-            self.processes
-                .entry(identifier)
-                .or_insert_with(|| ProcessData {
-                    history: ProcessHistory::new(self.history_len),
-                    stats: ProcessStats::default(),
-                });
         }
     }
 
@@ -97,8 +96,13 @@ impl Metrics {
 
     fn update_metrics(&mut self) {
         for process_identifier in &self.monitored_processes {
+            self.processes
+            .entry(process_identifier.clone())
+            .or_insert_with(|| ProcessData {
+                history: ProcessHistory::new(self.history_len),
+                stats: ProcessStats::default(),
+            });
             if let Some(stats) = self.monitor.get_basic_stats(&process_identifier) {
-                info!("stats: {:#?}", stats);
                 if let Some(process_data) = self.processes.get_mut(process_identifier) {
                     // Update history size if it changed
                     if process_data.history.history_len != self.history_len {
