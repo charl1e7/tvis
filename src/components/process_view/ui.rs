@@ -217,7 +217,44 @@ impl ProcessView {
                                             );
                                         }
                                     }
-                                    _ => {}
+                                    MetricType::Memory => {
+                                        ui.horizontal(|ui| {
+                                            ui.label(format!(
+                                                "Memory Usage: {:.1} MB",
+                                                process.memory_mb
+                                            ));
+                                            ui.label(" | ");
+                                            if let Some(memory_history) =
+                                                process_data.history.get_memory_history(
+                                                    &process.pid,
+                                                )
+                                            {
+                                                ui.label(format!(
+                                                    "Peak: {:.1} MB",
+                                                    memory_history.iter().copied().fold(0.0, f32::max)
+                                                ));
+                                            }
+                                        });
+                                        ui.add_space(5.0);
+                                        if let Some(memory_history) = process_data
+                                            .history
+                                            .get_memory_history(&process.pid)
+                                        {
+                                            let max_memory =
+                                                memory_history.iter().copied().fold(0.0, f32::max);
+                                            plot_metric(
+                                                ui,
+                                                format!(
+                                                    "child_memory_plot_{}",
+                                                process.pid
+                                                ),
+                                                80.0,
+                                                memory_history,
+                                                process_data.history.history_len,
+                                                max_memory * (1.0 + settings.graph_scale_margin),
+                                            );
+                                        }
+                                    }
                                 }
                             });
 

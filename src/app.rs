@@ -28,10 +28,6 @@ pub struct ProcessMonitorApp {
 
 impl ProcessMonitorApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        return ProcessMonitorApp {
-            metrics: Metrics::new(10, 1000),
-            ..Default::default()
-        };
         if let Some(storage) = cc.storage {
             let mut app: Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
             let metrics =

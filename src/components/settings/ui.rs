@@ -1,3 +1,5 @@
+use crate::metrics::Metrics;
+
 use super::state::Settings;
 
 pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
