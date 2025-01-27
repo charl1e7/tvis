@@ -113,11 +113,13 @@ impl Metrics {
                     }
                     // Remove inactive processes from history
                     process_data.history.cleanup_histories(&processes);
+                    let mut general_stats = ProcessGeneralStats::default();
                     let mut processes_stats = Vec::with_capacity(processes.len());
                     // Update process data
                     for process_pid in &processes {
-                        if let Some(process) = self.monitor.get_process(process_pid) {
+                        if let Some(process) = self.monitor.get_process_by_pid(process_pid) {
                             let process_info = self.monitor.collect_process_info(process);
+                            update_general_stats(&mut general_stats, &process_info);
                             process_data.history.update_process_cpu(
                                 0,
                                 process_info.pid,
@@ -132,10 +134,27 @@ impl Metrics {
                         }
                     }
                     process_data.processes_stats = processes_stats;
+                    process_data.genereal = general_stats;
                 }
             } else {
                 self.processes.remove(&process_identifier);
             }
         }
+    }
+}
+
+fn update_general_stats(general_stats: &mut ProcessGeneralStats, process: &ProcessInfo) {
+    if process.is_thread {
+        general_stats.thread_count += 1;
+    } else {
+        // general_stats.avg_cpu += process.cpu_usage;
+        general_stats.memory_mb += process.memory_mb;
+        general_stats.process_count += 1;
+        if process.cpu_usage > general_stats.peak_cpu {
+            general_stats.peak_cpu = process.cpu_usage;
+        };
+        if process.memory_mb > general_stats.peak_memory_mb {
+            general_stats.memory_mb = process.memory_mb;
+        };
     }
 }

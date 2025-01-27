@@ -55,10 +55,13 @@ impl ProcessSelector {
                                 let monitor = &metrics.read().unwrap().monitor;
                                 if !search_term.is_empty() {
                                     let proc = ProcessIdentifier::from(search_term.as_str());
-                                    if let Some(pid) = proc.to_pid() {
+                                    if let Some(pid) = &proc.to_pid() {
                                         if let Some(process) = monitor.get_process_by_pid(pid) {
-                                            let display_text =
-                                                format!("{} (PID: {})", process.name, pid);
+                                            let display_text = format!(
+                                                "{} (PID: {})",
+                                                process.name().to_string_lossy(),
+                                                pid
+                                            );
                                             if ui.button(&display_text).clicked() {
                                                 new_proc = Some(proc);
                                                 self.show = false;

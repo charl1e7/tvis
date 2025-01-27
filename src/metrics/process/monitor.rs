@@ -30,14 +30,6 @@ impl ProcessMonitor {
         }
     }
 
-    pub fn update_interval(&self) -> Duration {
-        self.update_interval
-    }
-
-    pub fn set_update_interval(&mut self, interval: Duration) {
-        self.update_interval = interval;
-    }
-
     pub fn should_update(&self) -> bool {
         self.last_update.elapsed() >= self.update_interval
     }
@@ -47,7 +39,7 @@ impl ProcessMonitor {
         self.last_update = Instant::now();
     }
 
-    pub fn get_process(&self, pid: &Pid) -> Option<&Process> {
+    pub fn get_process_by_pid(&self, pid: &Pid) -> Option<&Process> {
         self.system.process(*pid)
     }
 
@@ -60,24 +52,6 @@ impl ProcessMonitor {
             .collect();
         processes.sort();
         processes.dedup();
-        processes
-    }
-
-    pub fn get_process_by_pid(&self, pid: sysinfo::Pid) -> Option<ProcessInfo> {
-        self.system
-            .processes()
-            .get(&pid)
-            .map(|p| self.collect_process_info(p))
-    }
-
-    pub fn get_all_processes_with_pid(&self) -> Vec<(String, sysinfo::Pid)> {
-        let mut processes: Vec<_> = self
-            .system
-            .processes()
-            .values()
-            .map(|p| (p.name().to_string_lossy().into_owned(), p.pid()))
-            .collect();
-        processes.sort_by(|a, b| a.0.cmp(&b.0));
         processes
     }
 
@@ -148,24 +122,20 @@ impl ProcessMonitor {
         (!result.is_empty()).then_some(result)
     }
 
-    fn calculate_stats(processes: &[ProcessInfo]) -> (f32, f32) {
-        let total_cpu: f32 = processes.iter().map(|p| p.cpu_usage).sum();
-        let total_memory: f32 = processes.iter().map(|p| p.memory_mb).sum();
-        (total_cpu, total_memory)
-    }
-
-    fn calculate_history_stats(history: &[f32]) -> (f32, f32) {
-        if history.is_empty() {
-            return (0.0, 0.0);
-        }
-        let avg = history.iter().sum::<f32>() / history.len() as f32;
-        let peak = history.iter().copied().fold(0.0, f32::max);
-        (avg, peak)
+    pub fn get_all_processes_with_pid(&self) -> Vec<(String, sysinfo::Pid)> {
+        let mut processes: Vec<_> = self
+            .system
+            .processes()
+            .values()
+            .map(|p| (p.name().to_string_lossy().into_owned(), p.pid()))
+            .collect();
+        processes.sort_by(|a, b| a.0.cmp(&b.0));
+        processes
     }
 
     pub fn process_exists(&self, identifier: &ProcessIdentifier) -> bool {
         match identifier {
-            ProcessIdentifier::Pid(pid) => self.system.processes().contains_key(pid),
+            ProcessIdentifier::Pid(pid) => self.system.process(*pid).is_some(),
             ProcessIdentifier::Name(name) => self
                 .system
                 .processes()

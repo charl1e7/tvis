@@ -70,6 +70,8 @@ pub struct ProcessInfo {
     pub parent_pid: Option<sysinfo::Pid>,
     pub cpu_usage: f32,
     pub memory_mb: f32,
+    // pub avg_cpu: f32,
+    // pub avg_memory: f32,
     pub is_thread: bool,
 }
 
@@ -123,13 +125,17 @@ impl Default for SortType {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct ProcessGeneral {
+    pub stats: ProcessGeneralStats,
+    pub history: ProcessHistory,
+}
+#[derive(Debug, Clone, Default)]
 pub struct ProcessGeneralStats {
     pub current_cpu: f32,
     pub avg_cpu: f32,
     pub peak_cpu: f32,
     pub memory_mb: f32,
     pub peak_memory_mb: f32,
-    pub general_history: ProcessHistory,
     pub process_count: usize,
     pub thread_count: usize,
 }
