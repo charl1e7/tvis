@@ -1,6 +1,4 @@
-use crate::metrics::process::{
-    MetricType, ProcessHistory, ProcessIdentifier, ProcessStats, SortType,
-};
+use crate::metrics::process::{MetricType, ProcessHistory, ProcessIdentifier, SortType};
 use sysinfo::Pid;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]

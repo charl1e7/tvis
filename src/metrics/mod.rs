@@ -1,7 +1,8 @@
 use log::info;
 pub mod process;
 use process::{
-    ProcessData, ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessMonitor, ProcessStats,
+    ProcessData, ProcessGeneralStats, ProcessHistory, ProcessIdentifier, ProcessInfo,
+    ProcessMonitor,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -37,7 +38,6 @@ impl Metrics {
         };
         thread::sleep(update_interval);
         thread::spawn(move || loop {
-
             {
                 let metrics_read = metrics_clone.read().unwrap();
                 update_interval = metrics_read.update_interval;
@@ -50,7 +50,8 @@ impl Metrics {
                 let mut metrics_write = metrics_clone.write().unwrap();
                 metrics_write.processes = metrics_thread.processes.clone();
             }
-            metrics_thread.monitor = ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
+            metrics_thread.monitor =
+                ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
             thread::sleep(update_interval);
             metrics_thread.monitor.update();
         });
@@ -78,7 +79,8 @@ impl Metrics {
     pub fn clear_process_data(&mut self, identifier: &ProcessIdentifier) {
         if let Some(process_data) = self.processes.get_mut(identifier) {
             process_data.history = ProcessHistory::new(self.history_len);
-            process_data.stats = ProcessStats::default();
+            process_data.processes_stats = vec![];
+            process_data.genereal = ProcessGeneralStats::default();
         }
     }
 
@@ -97,37 +99,42 @@ impl Metrics {
     fn update_metrics(&mut self) {
         for process_identifier in &self.monitored_processes {
             self.processes
-            .entry(process_identifier.clone())
-            .or_insert_with(|| ProcessData {
-                history: ProcessHistory::new(self.history_len),
-                stats: ProcessStats::default(),
-            });
-            if let Some(stats) = self.monitor.get_basic_stats(&process_identifier) {
+                .entry(process_identifier.clone())
+                .or_insert_with(|| ProcessData {
+                    history: ProcessHistory::new(self.history_len),
+                    ..Default::default()
+                });
+            if let Some(processes) = self.monitor.find_all_relation(process_identifier) {
+                // update history
                 if let Some(process_data) = self.processes.get_mut(process_identifier) {
                     // Update history size if it changed
                     if process_data.history.history_len != self.history_len {
                         process_data.history = ProcessHistory::new(self.history_len);
                     }
-
-                    // Collect active PIDs
-                    let active_pids: Vec<_> = stats.processes.iter().map(|p| p.pid).collect();
-
-                    // Update process data
-                    process_data.stats = stats.clone();
-                    for process in &stats.processes {
-                        process_data
-                            .history
-                            .update_process_cpu(0, process.pid, process.cpu_usage);
-                        process_data
-                            .history
-                            .update_memory(0, process.pid, process.memory_mb);
-                    }
-
                     // Remove inactive processes from history
-                    process_data.history.cleanup_histories(0, &active_pids);
+                    process_data.history.cleanup_histories(&processes);
+                    let mut processes_stats = Vec::with_capacity(processes.len());
+                    // Update process data
+                    for process_pid in &processes {
+                        if let Some(process) = self.monitor.get_process(process_pid) {
+                            let process_info = self.monitor.collect_process_info(process);
+                            process_data.history.update_process_cpu(
+                                0,
+                                process_info.pid,
+                                process_info.cpu_usage,
+                            );
+                            process_data.history.update_memory(
+                                0,
+                                process_info.pid,
+                                process_info.memory_mb,
+                            );
+                            processes_stats.push(process_info);
+                        }
+                    }
+                    process_data.processes_stats = processes_stats;
                 }
             } else {
-                self.processes.remove(process_identifier);
+                self.processes.remove(&process_identifier);
             }
         }
     }

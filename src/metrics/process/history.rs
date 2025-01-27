@@ -184,7 +184,7 @@ impl ProcessHistory {
             .map(|metrics| metrics.memory.max_value())
     }
 
-    pub fn cleanup_histories(&mut self, _parent_idx: usize, active_pids: &[Pid]) {
+    pub fn cleanup_histories(&mut self, active_pids: &[Pid]) {
         self.histories.retain(|pid, _| active_pids.contains(pid));
     }
 }

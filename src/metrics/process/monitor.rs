@@ -1,8 +1,8 @@
-use super::{ProcessHistory, ProcessIdentifier, ProcessInfo, ProcessStats};
+use super::{ProcessHistory, ProcessIdentifier, ProcessInfo};
 use log::info;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, Instant};
-use sysinfo::{Process, System};
+use sysinfo::{Pid, Process, System};
 
 #[derive(Debug)]
 pub struct ProcessMonitor {
@@ -47,6 +47,10 @@ impl ProcessMonitor {
         self.last_update = Instant::now();
     }
 
+    pub fn get_process(&self, pid: &Pid) -> Option<&Process> {
+        self.system.process(*pid)
+    }
+
     pub fn get_all_processes(&self) -> Vec<String> {
         let mut processes: Vec<_> = self
             .system
@@ -77,86 +81,7 @@ impl ProcessMonitor {
         processes
     }
 
-    fn collect_processes(
-        &self,
-        identifier: &ProcessIdentifier,
-    ) -> Option<(Vec<ProcessInfo>, usize)> {
-        match identifier {
-            ProcessIdentifier::Pid(pid) => {
-                let mut all_processes = Vec::new();
-                let mut seen_pids = HashSet::new();
-                let mut thread_count = 0;
-                if let Some(process) = self.system.processes().get(pid) {
-                    seen_pids.insert(*pid);
-                    let info = self.collect_process_info(process);
-                    if info.is_thread {
-                        thread_count += 1;
-                    }
-                    all_processes.push(info);
-
-                    let child_pids = self.collect_child_pids(&[*pid], &mut seen_pids);
-                    for child_pid in child_pids {
-                        if let Some(process) = self.system.processes().get(&child_pid) {
-                            let info = self.collect_process_info(process);
-                            if info.is_thread {
-                                thread_count += 1;
-                            }
-                            all_processes.push(info);
-                        }
-                    }
-
-                    Some((all_processes, thread_count))
-                } else {
-                    None
-                }
-            }
-            ProcessIdentifier::Name(name) => {
-                let mut all_processes = Vec::new();
-                let mut seen_pids = HashSet::new();
-                let mut thread_count = 0;
-
-                let matching_pids: Vec<_> = self
-                    .system
-                    .processes()
-                    .iter()
-                    .filter(|(_, p)| p.name().to_string_lossy() == *name)
-                    .map(|(pid, _)| *pid)
-                    .collect();
-
-                if matching_pids.is_empty() {
-                    return None;
-                }
-
-                for pid in &matching_pids {
-                    if !seen_pids.contains(pid) {
-                        if let Some(process) = self.system.processes().get(pid) {
-                            seen_pids.insert(*pid);
-                            let info = self.collect_process_info(process);
-                            if info.is_thread {
-                                thread_count += 1;
-                            }
-                            all_processes.push(info);
-
-                            let child_pids = self.collect_child_pids(&[*pid], &mut seen_pids);
-                            for child_pid in child_pids {
-                                if let Some(process) = self.system.processes().get(&child_pid) {
-                                    let info = self.collect_process_info(process);
-                                    if info.is_thread {
-                                        thread_count += 1;
-                                    }
-                                    all_processes.push(info);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Some((all_processes, thread_count))
-            }
-        }
-    }
-
-    fn collect_process_info(&self, process: &Process) -> ProcessInfo {
+    pub fn collect_process_info(&self, process: &Process) -> ProcessInfo {
         let is_thread = process.thread_kind().is_some();
         let memory_mb = if is_thread {
             0.0
@@ -173,26 +98,54 @@ impl ProcessMonitor {
         }
     }
 
-    fn collect_child_pids(
-        &self,
-        parent_pids: &[sysinfo::Pid],
-        seen_pids: &mut HashSet<sysinfo::Pid>,
-    ) -> Vec<sysinfo::Pid> {
-        let mut child_pids = Vec::new();
+    pub fn find_all_relation(&self, identifier: &ProcessIdentifier) -> Option<Vec<Pid>> {
+        let target_pids = match identifier {
+            ProcessIdentifier::Pid(pid) => {
+                vec![*pid]
+            }
+            ProcessIdentifier::Name(name) => self
+                .system
+                .processes()
+                .iter()
+                .filter(|(_, p)| p.name().to_string_lossy() == *name)
+                .map(|(pid, _)| *pid)
+                .collect(),
+        };
+        if target_pids.is_empty() {
+            return None;
+        }
+        let mut parent_to_children: HashMap<Option<Pid>, Vec<Pid>> = HashMap::new();
+
         for (pid, process) in self.system.processes() {
-            if !seen_pids.contains(pid) {
-                if let Some(parent) = process.parent() {
-                    if parent_pids.contains(&parent) {
-                        seen_pids.insert(*pid);
-                        child_pids.push(*pid);
-                        // Recursively collect children of this process
-                        let grandchildren = self.collect_child_pids(&[*pid], seen_pids);
-                        child_pids.extend(grandchildren);
+            parent_to_children
+                .entry(process.parent())
+                .or_default()
+                .push(*pid);
+        }
+
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+        let mut result = Vec::new();
+
+        for pid in target_pids {
+            if visited.insert(pid) {
+                queue.push_back(pid);
+            }
+        }
+
+        while let Some(current_pid) = queue.pop_front() {
+            result.push(current_pid);
+
+            if let Some(children) = parent_to_children.get(&Some(current_pid)) {
+                for &child_pid in children {
+                    if visited.insert(child_pid) {
+                        queue.push_back(child_pid);
                     }
                 }
             }
         }
-        child_pids
+
+        (!result.is_empty()).then_some(result)
     }
 
     fn calculate_stats(processes: &[ProcessInfo]) -> (f32, f32) {
@@ -210,43 +163,6 @@ impl ProcessMonitor {
         (avg, peak)
     }
 
-    pub fn get_process_stats(
-        &self,
-        identifier: &ProcessIdentifier,
-        history: &ProcessHistory,
-        _process_idx: usize,
-    ) -> Option<ProcessStats> {
-        let (processes, thread_count) = self.collect_processes(identifier)?;
-        let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
-
-        let mut peak_cpu = current_cpu;
-        let mut peak_memory_mb = memory_mb;
-        let mut avg_cpu = current_cpu;
-
-        // Calculate historical stats
-        for process in &processes {
-            if let Some(cpu_history) = history.get_process_cpu_history(&process.pid) {
-                let (avg, peak) = Self::calculate_history_stats(&cpu_history);
-                avg_cpu = avg_cpu.max(avg);
-                peak_cpu = peak_cpu.max(peak);
-            }
-            if let Some(memory_history) = history.get_memory_history(&process.pid) {
-                let (_, peak) = Self::calculate_history_stats(&memory_history);
-                peak_memory_mb = peak_memory_mb.max(peak);
-            }
-        }
-
-        Some(ProcessStats {
-            current_cpu,
-            avg_cpu,
-            peak_cpu,
-            memory_mb,
-            peak_memory_mb,
-            processes,
-            thread_count,
-        })
-    }
-
     pub fn process_exists(&self, identifier: &ProcessIdentifier) -> bool {
         match identifier {
             ProcessIdentifier::Pid(pid) => self.system.processes().contains_key(pid),
@@ -256,20 +172,5 @@ impl ProcessMonitor {
                 .values()
                 .any(|p| p.name().to_string_lossy() == *name),
         }
-    }
-
-    pub fn get_basic_stats(&self, identifier: &ProcessIdentifier) -> Option<ProcessStats> {
-        let (processes, thread_count) = self.collect_processes(identifier)?;
-        let (current_cpu, memory_mb) = Self::calculate_stats(&processes);
-
-        Some(ProcessStats {
-            current_cpu,
-            avg_cpu: current_cpu,
-            peak_cpu: current_cpu,
-            memory_mb,
-            peak_memory_mb: memory_mb,
-            processes,
-            thread_count,
-        })
     }
 }

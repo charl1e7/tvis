@@ -18,7 +18,7 @@ impl ProcessView {
         ui.group(|ui| {
             ui.heading(process_identifier.to_string());
 
-            stats_view::show_process_stats(ui, &process_data.stats);
+            stats_view::show_process_stats(ui, &process_data.genereal);
             // Metric toggle button
             ui.horizontal(|ui| {
                 egui::Frame::none()
@@ -95,7 +95,7 @@ impl ProcessView {
             //     }
             // }
 
-            if !process_data.stats.processes.is_empty() {
+            if !process_data.processes_stats.is_empty() {
                 ui.collapsing("Processes", |ui| {
                     ui.horizontal(|ui| {
                         ui.label("Sort by:");
@@ -113,7 +113,7 @@ impl ProcessView {
                         }
                     });
 
-                    let mut processes = process_data.stats.processes.iter().collect::<Vec<_>>();
+                    let mut processes = process_data.processes_stats.iter().collect::<Vec<_>>();
 
                     match self.sort_type {
                         SortType::AvgCpu => {
@@ -166,8 +166,7 @@ impl ProcessView {
                                     ui.label(" | ");
                                     if let Some(parent_pid) = process.parent_pid {
                                         let parent_exists = process_data
-                                            .stats
-                                            .processes
+                                            .processes_stats
                                             .iter()
                                             .any(|p| p.pid == parent_pid);
 
@@ -229,30 +228,28 @@ impl ProcessView {
                                                 process.memory_mb
                                             ));
                                             ui.label(" | ");
-                                            if let Some(memory_history) =
-                                                process_data.history.get_memory_history(
-                                                    &process.pid,
-                                                )
+                                            if let Some(memory_history) = process_data
+                                                .history
+                                                .get_memory_history(&process.pid)
                                             {
                                                 ui.label(format!(
                                                     "Peak: {:.1} MB",
-                                                    memory_history.iter().copied().fold(0.0, f32::max)
+                                                    memory_history
+                                                        .iter()
+                                                        .copied()
+                                                        .fold(0.0, f32::max)
                                                 ));
                                             }
                                         });
                                         ui.add_space(5.0);
-                                        if let Some(memory_history) = process_data
-                                            .history
-                                            .get_memory_history(&process.pid)
+                                        if let Some(memory_history) =
+                                            process_data.history.get_memory_history(&process.pid)
                                         {
                                             let max_memory =
                                                 memory_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(
                                                 ui,
-                                                format!(
-                                                    "child_memory_plot_{}",
-                                                process.pid
-                                                ),
+                                                format!("child_memory_plot_{}", process.pid),
                                                 80.0,
                                                 memory_history,
                                                 process_data.history.history_len,

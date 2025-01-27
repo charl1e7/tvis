@@ -139,7 +139,7 @@ impl eframe::App for ProcessMonitorApp {
                 if let Some(process_data) = monitored_processes {
                     &self
                         .process_view
-                        .show_process(ui, &identifier,&process_data, &self.settings);
+                        .show_process(ui, &identifier, &process_data, &self.settings);
                 } else {
                     ui.group(|ui| {
                         ui.heading(identifier.to_string());
