@@ -131,27 +131,7 @@ impl Default for SortType {
 #[derive(Debug, Clone, Default)]
 pub struct ProcessGeneral {
     pub stats: ProcessGeneralStats,
-    pub history: ProcessGeneralHistory,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ProcessGeneralHistory {
-    history: ProcessMetrics,
-    history_len: usize,
-}
-
-impl ProcessGeneralHistory {
-    pub fn get_cpu_history(&self) -> Vec<f32> {
-        self.history.get_cpu_history()
-    }
-
-    pub fn get_memory_history(&self) -> Vec<f32> {
-        self.history.get_memory_history()
-    }
-
-    pub fn history_len(&self) -> usize {
-        self.history_len
-    }
+    pub history: ProcessHistory,
 }
 
 #[derive(Debug, Clone, Default)]

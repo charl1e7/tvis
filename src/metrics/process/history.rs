@@ -134,14 +134,14 @@ impl ProcessHistory {
         }
     }
 
-    pub fn update_process_cpu(&mut self, _process_idx: usize, pid: Pid, cpu_usage: f32) {
+    pub fn update_cpu(&mut self, pid: Pid, cpu_usage: f32) {
         self.histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_len))
             .update_cpu(cpu_usage);
     }
 
-    pub fn update_memory(&mut self, _process_idx: usize, pid: Pid, memory_mb: f32) {
+    pub fn update_memory(&mut self, pid: Pid, memory_mb: f32) {
         self.histories
             .entry(pid)
             .or_insert_with(|| ProcessMetrics::new(self.history_len))

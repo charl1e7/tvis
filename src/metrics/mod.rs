@@ -102,6 +102,10 @@ impl Metrics {
                 .entry(process_identifier.clone())
                 .or_insert_with(|| ProcessData {
                     history: ProcessHistory::new(self.history_len),
+                    genereal: ProcessGeneral{
+                        history: ProcessHistory::new(self.history_len),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 });
             if let Some(processes) = self.monitor.find_all_relation(process_identifier) {
@@ -122,20 +126,34 @@ impl Metrics {
                                 .monitor
                                 .collect_process_info(process, &process_data.history);
                             update_general_stats(&mut general_stats, &process_info);
-                            process_data.history.update_process_cpu(
-                                0,
-                                process_info.pid,
-                                process_info.cpu_usage,
-                            );
-                            process_data.history.update_memory(
-                                0,
-                                process_info.pid,
-                                process_info.memory_mb,
-                            );
+                            process_data
+                                .history
+                                .update_cpu(process_info.pid, process_info.cpu_usage);
+                            process_data
+                                .history
+                                .update_memory(process_info.pid, process_info.memory_mb);
                             processes_stats.push(process_info);
                         }
                     }
                     process_data.processes_stats = processes_stats;
+                    process_data
+                        .genereal
+                        .history
+                        .update_cpu(Pid::from_u32(0), general_stats.current_cpu);
+                    process_data
+                        .genereal
+                        .history
+                        .update_memory(Pid::from_u32(0), general_stats.current_memory);
+                    if general_stats.current_cpu < process_data.genereal.stats.peak_cpu {
+                        general_stats.peak_cpu = process_data.genereal.stats.peak_cpu;
+                    } else {
+                        general_stats.peak_cpu = general_stats.current_cpu;
+                    };
+                    if general_stats.current_memory < process_data.genereal.stats.peak_memory_mb {
+                        general_stats.peak_memory_mb = process_data.genereal.stats.peak_memory_mb;
+                    } else {
+                        general_stats.peak_memory_mb = general_stats.current_memory
+                    };
                     process_data.genereal.stats = general_stats;
                 }
             } else {
@@ -155,11 +173,5 @@ fn update_general_stats(general_stats: &mut ProcessGeneralStats, process: &Proce
         general_stats.avg_memory += process.avg_memory;
         general_stats.current_cpu += process.cpu_usage;
         general_stats.current_memory += process.memory_mb;
-        if process.cpu_usage > general_stats.peak_cpu {
-            general_stats.peak_cpu = process.cpu_usage;
-        };
-        if process.memory_mb > general_stats.peak_memory_mb {
-            general_stats.peak_memory_mb = process.memory_mb;
-        };
     }
 }

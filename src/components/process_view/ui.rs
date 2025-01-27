@@ -1,5 +1,7 @@
 use std::sync::{Arc, RwLock};
 
+use sysinfo::Pid;
+
 use crate::components::process_view::state::ProcessView;
 use crate::components::settings::Settings;
 use crate::components::stats_view;
@@ -58,14 +60,23 @@ impl ProcessView {
                             "Peak: {:.1}%",
                             process_data.genereal.stats.peak_cpu
                         ));
+                        ui.label(" | ");
+                        ui.label(format!(
+                            "AVG CPU: {:.1}%",
+                            process_data.genereal.stats.avg_cpu
+                        ));
                     });
                     ui.add_space(2.0);
                     plot_metric(
                         ui,
                         "cpu_plot_general_process",
                         100.0,
-                        process_data.genereal.history.get_cpu_history(),
-                        process_data.genereal.history.history_len(),
+                        process_data
+                            .genereal
+                            .history
+                            .get_cpu_history(&Pid::from_u32(0))
+                            .unwrap_or_default(),
+                        process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
                     );
                 }
@@ -80,13 +91,22 @@ impl ProcessView {
                             "Peak: {:.1} MB",
                             process_data.genereal.stats.peak_memory_mb
                         ));
+                        ui.label(" | ");
+                        ui.label(format!(
+                            "AVG memory: {:.1} MB",
+                            process_data.genereal.stats.avg_memory
+                        ));
                     });
                     plot_metric(
                         ui,
                         "memory_plot_general_process",
                         100.0,
-                        process_data.genereal.history.get_memory_history(),
-                        process_data.genereal.history.history_len(),
+                        process_data
+                            .genereal
+                            .history
+                            .get_memory_history(&Pid::from_u32(0))
+                            .unwrap_or_default(),
+                        process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_memory_mb
                             * (1.0 + settings.graph_scale_margin),
                     );
