@@ -5,10 +5,12 @@ use process::{
     ProcessInfo, ProcessMonitor,
 };
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LazyLock, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use sysinfo::{Pid, System};
+
+pub static GENERAL_STATS_PID: LazyLock<Pid> = LazyLock::new(|| Pid::from_u32(0));
 
 #[derive(Debug, Default)]
 pub struct Metrics {
@@ -139,14 +141,14 @@ impl Metrics {
                     process_data
                         .genereal
                         .history
-                        .update_cpu(Pid::from_u32(0), general_stats.current_cpu);
+                        .update_cpu(*GENERAL_STATS_PID, general_stats.current_cpu);
                     process_data
                         .genereal
                         .history
-                        .update_memory(Pid::from_u32(0), general_stats.current_memory);
+                        .update_memory(*GENERAL_STATS_PID, general_stats.current_memory);
                     let (peak_cpu, peak_memory) = if let (Some(cpu_history), Some(mem_history)) = (
-                        process_data.genereal.history.get_cpu_history(&Pid::from_u32(0)),
-                        process_data.genereal.history.get_memory_history(&Pid::from_u32(0))
+                        process_data.genereal.history.get_cpu_history(&*GENERAL_STATS_PID),
+                        process_data.genereal.history.get_memory_history(&*GENERAL_STATS_PID)
                     ) {
                         let mut max_cpu = 0.0;
                         let mut max_memory = 0.0;

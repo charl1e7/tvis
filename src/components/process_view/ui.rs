@@ -5,7 +5,7 @@ use sysinfo::Pid;
 use crate::components::process_view::state::ProcessView;
 use crate::components::settings::Settings;
 use crate::metrics::process::{MetricType, ProcessData, ProcessIdentifier, SortType};
-use crate::metrics::Metrics;
+use crate::metrics::{Metrics, GENERAL_STATS_PID};
 use crate::ProcessMonitorApp;
 
 impl ProcessView {
@@ -84,7 +84,7 @@ impl ProcessView {
                         process_data
                             .genereal
                             .history
-                            .get_cpu_history(&Pid::from_u32(0))
+                            .get_cpu_history(&*GENERAL_STATS_PID)
                             .unwrap_or_default(),
                         process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
@@ -114,7 +114,7 @@ impl ProcessView {
                         process_data
                             .genereal
                             .history
-                            .get_memory_history(&Pid::from_u32(0))
+                            .get_memory_history(&*GENERAL_STATS_PID)
                             .unwrap_or_default(),
                         process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_memory_mb
