@@ -4,7 +4,6 @@ use sysinfo::Pid;
 
 use crate::components::process_view::state::ProcessView;
 use crate::components::settings::Settings;
-use crate::components::stats_view;
 use crate::metrics::process::{MetricType, ProcessData, ProcessIdentifier, SortType};
 use crate::metrics::Metrics;
 use crate::ProcessMonitorApp;
@@ -19,8 +18,19 @@ impl ProcessView {
     ) {
         ui.group(|ui| {
             ui.heading(process_identifier.to_string());
-
-            stats_view::show_process_stats(ui, &process_data.genereal.stats);
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(format!(
+                        "Total Processes: {}",
+                        process_data.genereal.stats.process_count
+                    ));
+                    ui.label(format!(
+                        "Total Threads: {}",
+                        process_data.genereal.stats.thread_count
+                    ));
+                });
+            });
+            ui.add_space(8.0);
             // Metric toggle button
             ui.horizontal(|ui| {
                 egui::Frame::none()
@@ -168,12 +178,6 @@ impl ProcessView {
                     scroll.show(ui, |ui| {
                         for process in processes {
                             let response = ui.group(|ui| {
-                                let avg_cpu = process_data
-                                    .history
-                                    .get_cpu_history(&process.pid)
-                                    .map(|h| h.iter().sum::<f32>() / h.len() as f32)
-                                    .unwrap_or(0.0);
-
                                 if process.is_thread {
                                     ui.heading(&format!("{} (Thread)", process.name));
                                 } else {
@@ -210,16 +214,12 @@ impl ProcessView {
                                                 process.cpu_usage
                                             ));
                                             ui.label(" | ");
-                                            if let Some(cpu_history) =
-                                                process_data.history.get_cpu_history(&process.pid)
-                                            {
                                                 ui.label(format!(
                                                     "Peak: {:.1}%",
-                                                    cpu_history.iter().copied().fold(0.0, f32::max)
+                                                    process.peak_cpu
                                                 ));
-                                            }
                                             ui.label(" | ");
-                                            ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
+                                            ui.label(format!("Avg CPU: {:.1}%", process.avg_cpu));
                                         });
                                         ui.add_space(2.0);
                                         if let Some(cpu_history) =
@@ -244,18 +244,15 @@ impl ProcessView {
                                                 process.memory_mb
                                             ));
                                             ui.label(" | ");
-                                            if let Some(memory_history) = process_data
-                                                .history
-                                                .get_memory_history(&process.pid)
-                                            {
                                                 ui.label(format!(
                                                     "Peak: {:.1} MB",
-                                                    memory_history
-                                                        .iter()
-                                                        .copied()
-                                                        .fold(0.0, f32::max)
+                                                    process.peak_memory
                                                 ));
-                                            }
+                                            ui.label(" | ");
+                                            ui.label(format!(
+                                                "AVG memory: {:.1} MB",
+                                                process.avg_memory
+                                            ));
                                         });
                                         ui.add_space(5.0);
                                         if let Some(memory_history) =

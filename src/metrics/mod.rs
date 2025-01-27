@@ -102,7 +102,7 @@ impl Metrics {
                 .entry(process_identifier.clone())
                 .or_insert_with(|| ProcessData {
                     history: ProcessHistory::new(self.history_len),
-                    genereal: ProcessGeneral{
+                    genereal: ProcessGeneral {
                         history: ProcessHistory::new(self.history_len),
                         ..Default::default()
                     },
@@ -144,16 +144,27 @@ impl Metrics {
                         .genereal
                         .history
                         .update_memory(Pid::from_u32(0), general_stats.current_memory);
-                    if general_stats.current_cpu < process_data.genereal.stats.peak_cpu {
-                        general_stats.peak_cpu = process_data.genereal.stats.peak_cpu;
+                    let (peak_cpu, peak_memory) = if let (Some(cpu_history), Some(mem_history)) = (
+                        process_data.genereal.history.get_cpu_history(&Pid::from_u32(0)),
+                        process_data.genereal.history.get_memory_history(&Pid::from_u32(0))
+                    ) {
+                        let mut max_cpu = 0.0;
+                        let mut max_memory = 0.0;
+                        let len = cpu_history.len();
+            
+                        for i in 0..len {
+                            let cpu_val = cpu_history[i];
+                            let mem_val = mem_history[i];
+                            max_cpu = f32::max(max_cpu, cpu_val);
+                            max_memory = f32::max(max_memory, mem_val);
+                        }
+            
+                        (max_cpu, max_memory)
                     } else {
-                        general_stats.peak_cpu = general_stats.current_cpu;
+                        (0.0, 0.0)
                     };
-                    if general_stats.current_memory < process_data.genereal.stats.peak_memory_mb {
-                        general_stats.peak_memory_mb = process_data.genereal.stats.peak_memory_mb;
-                    } else {
-                        general_stats.peak_memory_mb = general_stats.current_memory
-                    };
+                    general_stats.peak_cpu = peak_cpu;
+                    general_stats.peak_memory_mb = peak_memory;
                     process_data.genereal.stats = general_stats;
                 }
             } else {
