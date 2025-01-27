@@ -70,8 +70,8 @@ pub struct ProcessInfo {
     pub parent_pid: Option<sysinfo::Pid>,
     pub cpu_usage: f32,
     pub memory_mb: f32,
-    // pub avg_cpu: f32,
-    // pub avg_memory: f32,
+    pub avg_cpu: f32,
+    pub avg_memory: f32,
     pub is_thread: bool,
 }
 
@@ -86,6 +86,8 @@ impl From<&str> for ProcessInfo {
                     cpu_usage: 0.0,
                     memory_mb: 0.0,
                     is_thread: false,
+                    avg_cpu: 0.0,
+                    avg_memory: 0.0,
                 };
             }
         }
@@ -96,6 +98,8 @@ impl From<&str> for ProcessInfo {
             cpu_usage: 0.0,
             memory_mb: 0.0,
             is_thread: false,
+            avg_cpu: 0.0,
+            avg_memory: 0.0,
         }
     }
 }
@@ -133,6 +137,7 @@ pub struct ProcessGeneral {
 pub struct ProcessGeneralStats {
     pub current_cpu: f32,
     pub avg_cpu: f32,
+    pub avg_memory: f32,
     pub peak_cpu: f32,
     pub memory_mb: f32,
     pub peak_memory_mb: f32,

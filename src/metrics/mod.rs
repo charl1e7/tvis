@@ -118,7 +118,9 @@ impl Metrics {
                     // Update process data
                     for process_pid in &processes {
                         if let Some(process) = self.monitor.get_process_by_pid(process_pid) {
-                            let process_info = self.monitor.collect_process_info(process);
+                            let process_info = self
+                                .monitor
+                                .collect_process_info(process, &process_data.history);
                             update_general_stats(&mut general_stats, &process_info);
                             process_data.history.update_process_cpu(
                                 0,
@@ -150,6 +152,8 @@ fn update_general_stats(general_stats: &mut ProcessGeneralStats, process: &Proce
         // general_stats.avg_cpu += process.cpu_usage;
         general_stats.memory_mb += process.memory_mb;
         general_stats.process_count += 1;
+        general_stats.avg_cpu += process.avg_cpu;
+        general_stats.avg_memory += process.avg_memory;
         if process.cpu_usage > general_stats.peak_cpu {
             general_stats.peak_cpu = process.cpu_usage;
         };
