@@ -1,8 +1,8 @@
 use log::info;
 pub mod process;
 use process::{
-    ProcessData, ProcessGeneralStats, ProcessHistory, ProcessIdentifier, ProcessInfo,
-    ProcessMonitor,
+    ProcessData, ProcessGeneral, ProcessGeneralStats, ProcessHistory, ProcessIdentifier,
+    ProcessInfo, ProcessMonitor,
 };
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -80,7 +80,7 @@ impl Metrics {
         if let Some(process_data) = self.processes.get_mut(identifier) {
             process_data.history = ProcessHistory::new(self.history_len);
             process_data.processes_stats = vec![];
-            process_data.genereal = ProcessGeneralStats::default();
+            process_data.genereal = ProcessGeneral::default();
         }
     }
 
@@ -136,7 +136,7 @@ impl Metrics {
                         }
                     }
                     process_data.processes_stats = processes_stats;
-                    process_data.genereal = general_stats;
+                    process_data.genereal.stats = general_stats;
                 }
             } else {
                 self.processes.remove(&process_identifier);
@@ -150,15 +150,16 @@ fn update_general_stats(general_stats: &mut ProcessGeneralStats, process: &Proce
         general_stats.thread_count += 1;
     } else {
         // general_stats.avg_cpu += process.cpu_usage;
-        general_stats.memory_mb += process.memory_mb;
         general_stats.process_count += 1;
         general_stats.avg_cpu += process.avg_cpu;
         general_stats.avg_memory += process.avg_memory;
+        general_stats.current_cpu += process.cpu_usage;
+        general_stats.current_memory += process.memory_mb;
         if process.cpu_usage > general_stats.peak_cpu {
             general_stats.peak_cpu = process.cpu_usage;
         };
         if process.memory_mb > general_stats.peak_memory_mb {
-            general_stats.memory_mb = process.memory_mb;
+            general_stats.peak_memory_mb = process.memory_mb;
         };
     }
 }

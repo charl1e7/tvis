@@ -18,7 +18,7 @@ impl ProcessView {
         ui.group(|ui| {
             ui.heading(process_identifier.to_string());
 
-            stats_view::show_process_stats(ui, &process_data.genereal);
+            stats_view::show_process_stats(ui, &process_data.genereal.stats);
             // Metric toggle button
             ui.horizontal(|ui| {
                 egui::Frame::none()
@@ -45,55 +45,53 @@ impl ProcessView {
                     });
             });
             ui.add_space(3.0);
-            // Plot based on selected metric
-            // match *self.current_metric {
-            //     MetricType::Cpu => {
-            //         if let Some(cpu_history) =
-            //             process_data.stats.
-            //         {
-            //             if !cpu_history.is_empty() {
-            //                 ui.horizontal(|ui| {
-            //                     ui.label(format!("CPU Usage: {:.1}%", cpu_history.last().unwrap()));
-            //                     ui.label(" | ");
-            //                     ui.label(format!("Peak: {:.1}%", self.stats.peak_cpu));
-            //                 });
-            //                 ui.add_space(2.0);
-            //                 plot_metric(
-            //                     ui,
-            //                     format!("cpu_plot_{}", self.process_idx),
-            //                     100.0,
-            //                     cpu_history,
-            //                     self.history.history_max_points,
-            //                     self.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
-            //                 );
-            //             }
-            //         }
-            //     }
-            //     MetricType::Memory => {
-            //         if let Some(memory_history) =
-            //             self.history.get_memory_history(self.process_idx)
-            //         {
-            //             if !memory_history.is_empty() {
-            //                 ui.horizontal(|ui| {
-            //                     ui.label(format!(
-            //                         "Memory Usage: {:.1} MB",
-            //                         memory_history.last().unwrap()
-            //                     ));
-            //                     ui.label(" | ");
-            //                     ui.label(format!("Peak: {:.1} MB", self.stats.peak_memory_mb));
-            //                 });
-            //                 plot_metric(
-            //                     ui,
-            //                     format!("memory_plot_{}", self.process_idx),
-            //                     100.0,
-            //                     memory_history,
-            //                     self.history.history_max_points,
-            //                     self.stats.peak_memory_mb * (1.0 + settings.graph_scale_margin),
-            //                 );
-            //             }
-            //         }
-            //     }
-            // }
+            // Plot based on general metric
+            match self.current_metric {
+                MetricType::Cpu => {
+                    ui.horizontal(|ui| {
+                        ui.label(format!(
+                            "CPU Usage: {:.1}%",
+                            process_data.genereal.stats.current_cpu
+                        ));
+                        ui.label(" | ");
+                        ui.label(format!(
+                            "Peak: {:.1}%",
+                            process_data.genereal.stats.peak_cpu
+                        ));
+                    });
+                    ui.add_space(2.0);
+                    plot_metric(
+                        ui,
+                        "cpu_plot_general_process",
+                        100.0,
+                        process_data.genereal.history.get_cpu_history(),
+                        process_data.genereal.history.history_len(),
+                        process_data.genereal.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
+                    );
+                }
+                MetricType::Memory => {
+                    ui.horizontal(|ui| {
+                        ui.label(format!(
+                            "Memory Usage: {:.1} MB",
+                            process_data.genereal.stats.current_memory
+                        ));
+                        ui.label(" | ");
+                        ui.label(format!(
+                            "Peak: {:.1} MB",
+                            process_data.genereal.stats.peak_memory_mb
+                        ));
+                    });
+                    plot_metric(
+                        ui,
+                        "memory_plot_general_process",
+                        100.0,
+                        process_data.genereal.history.get_memory_history(),
+                        process_data.genereal.history.history_len(),
+                        process_data.genereal.stats.peak_memory_mb
+                            * (1.0 + settings.graph_scale_margin),
+                    );
+                }
+            }
 
             if !process_data.processes_stats.is_empty() {
                 ui.collapsing("Processes", |ui| {
@@ -120,12 +118,12 @@ impl ProcessView {
                             processes.sort_by(|&a, &b| {
                                 let a_avg = process_data
                                     .history
-                                    .get_process_cpu_history(&a.pid)
+                                    .get_cpu_history(&a.pid)
                                     .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                     .unwrap_or(0.0);
                                 let b_avg = process_data
                                     .history
-                                    .get_process_cpu_history(&b.pid)
+                                    .get_cpu_history(&b.pid)
                                     .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                     .unwrap_or(0.0);
                                 b_avg
@@ -152,7 +150,7 @@ impl ProcessView {
                             let response = ui.group(|ui| {
                                 let avg_cpu = process_data
                                     .history
-                                    .get_process_cpu_history(&process.pid)
+                                    .get_cpu_history(&process.pid)
                                     .map(|h| h.iter().sum::<f32>() / h.len() as f32)
                                     .unwrap_or(0.0);
 
@@ -192,9 +190,8 @@ impl ProcessView {
                                                 process.cpu_usage
                                             ));
                                             ui.label(" | ");
-                                            if let Some(cpu_history) = process_data
-                                                .history
-                                                .get_process_cpu_history(&process.pid)
+                                            if let Some(cpu_history) =
+                                                process_data.history.get_cpu_history(&process.pid)
                                             {
                                                 ui.label(format!(
                                                     "Peak: {:.1}%",
@@ -205,9 +202,8 @@ impl ProcessView {
                                             ui.label(format!("Avg CPU: {:.1}%", avg_cpu));
                                         });
                                         ui.add_space(2.0);
-                                        if let Some(cpu_history) = process_data
-                                            .history
-                                            .get_process_cpu_history(&process.pid)
+                                        if let Some(cpu_history) =
+                                            process_data.history.get_cpu_history(&process.pid)
                                         {
                                             let max_cpu =
                                                 cpu_history.iter().copied().fold(0.0, f32::max);

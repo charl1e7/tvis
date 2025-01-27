@@ -57,7 +57,7 @@ impl ProcessMonitor {
 
     pub fn collect_process_info(&self, process: &Process, history: &ProcessHistory) -> ProcessInfo {
         let avg_cpu = history
-            .get_process_cpu_history(&process.pid())
+            .get_cpu_history(&process.pid())
             .map(|h| h.iter().sum::<f32>() / h.len() as f32)
             .unwrap_or(0.0);
         let avg_memory = history

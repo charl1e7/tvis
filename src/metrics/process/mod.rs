@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default)]
 pub struct ProcessData {
     pub history: ProcessHistory,
-    pub genereal: ProcessGeneralStats,
+    pub genereal: ProcessGeneral,
     pub processes_stats: Vec<ProcessInfo>,
 }
 
@@ -131,15 +131,36 @@ impl Default for SortType {
 #[derive(Debug, Clone, Default)]
 pub struct ProcessGeneral {
     pub stats: ProcessGeneralStats,
-    pub history: ProcessHistory,
+    pub history: ProcessGeneralHistory,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct ProcessGeneralHistory {
+    history: ProcessMetrics,
+    history_len: usize,
+}
+
+impl ProcessGeneralHistory {
+    pub fn get_cpu_history(&self) -> Vec<f32> {
+        self.history.get_cpu_history()
+    }
+
+    pub fn get_memory_history(&self) -> Vec<f32> {
+        self.history.get_memory_history()
+    }
+
+    pub fn history_len(&self) -> usize {
+        self.history_len
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ProcessGeneralStats {
     pub current_cpu: f32,
     pub avg_cpu: f32,
     pub avg_memory: f32,
     pub peak_cpu: f32,
-    pub memory_mb: f32,
+    pub current_memory: f32,
     pub peak_memory_mb: f32,
     pub process_count: usize,
     pub thread_count: usize,

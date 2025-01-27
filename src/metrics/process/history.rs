@@ -12,7 +12,7 @@ pub struct ProcessHistory {
 
 /// Stores CPU and memory metrics for a process
 #[derive(Default, Debug, Clone)]
-struct ProcessMetrics {
+pub struct ProcessMetrics {
     cpu: CircularBuffer,
     memory: CircularBuffer,
 }
@@ -33,11 +33,11 @@ impl ProcessMetrics {
         self.memory.push(value);
     }
 
-    fn get_cpu_history(&self) -> Vec<f32> {
+    pub fn get_cpu_history(&self) -> Vec<f32> {
         self.cpu.as_slice()
     }
 
-    fn get_memory_history(&self) -> Vec<f32> {
+    pub fn get_memory_history(&self) -> Vec<f32> {
         self.memory.as_slice()
     }
 }
@@ -148,7 +148,7 @@ impl ProcessHistory {
             .update_memory(memory_mb);
     }
 
-    pub fn get_process_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
+    pub fn get_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
         self.histories
             .get(pid)
             .map(|metrics| metrics.get_cpu_history())
