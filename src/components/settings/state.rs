@@ -1,4 +1,10 @@
 #[derive(serde::Deserialize, serde::Serialize, Clone, Copy, PartialEq)]
+pub enum UpdateMode {
+    Reactive,
+    Continuous,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone, Copy, PartialEq)]
 pub enum MemoryUnit {
     Bytes,
     Kilobytes,
@@ -25,6 +31,7 @@ pub struct Settings {
     pub update_interval_ms: usize,
     pub history_length: usize,
     pub memory_unit: MemoryUnit,
+    pub update_mode: UpdateMode,
     #[serde(skip)]
     show_window: bool,
 }
@@ -38,6 +45,7 @@ impl Default for Settings {
             update_interval_ms: 1000,
             history_length: 100,
             memory_unit: MemoryUnit::Megabytes,
+            update_mode: UpdateMode::Continuous,
             show_window: false,
         }
     }

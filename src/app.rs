@@ -1,6 +1,6 @@
 use crate::components::process_selector::ProcessSelector;
 use crate::components::process_view::{self, state::ProcessView};
-use crate::components::settings::{show_settings_window, Settings};
+use crate::components::settings::{show_settings_window, Settings, UpdateMode};
 use crate::metrics::process::{MetricType, ProcessIdentifier, SortType};
 use crate::metrics::{self, Metrics};
 use log::info;
@@ -151,8 +151,10 @@ impl eframe::App for ProcessMonitorApp {
             }
         });
 
-        // Change mode rendering
-        ctx.request_repaint();
+        if self.settings.update_mode == UpdateMode::Continuous {
+            // Change mode rendering
+            ctx.request_repaint();
+        }
     }
 }
 

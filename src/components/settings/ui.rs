@@ -1,6 +1,6 @@
 use crate::metrics::Metrics;
 use std::sync::{Arc, RwLock};
-use super::state::{MemoryUnit, Settings};
+use super::state::{MemoryUnit, Settings, UpdateMode};
 
 pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metrics: Arc<RwLock<Metrics>>) {
     if !settings.is_visible() {
@@ -77,6 +77,22 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metric
                     .clicked()
                 {
                     settings.toggle_theme(ctx);
+                }
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("Update Mode:");
+                for mode in [UpdateMode::Continuous,UpdateMode::Reactive, ] {
+                    let label = match mode {
+                        UpdateMode::Continuous => "Continuous",
+                        UpdateMode::Reactive => "Reactive",
+                    };
+                    if ui.selectable_label(settings.update_mode == mode, label).clicked() {
+                        settings.update_mode = mode;
+                        ctx.request_repaint();
+                    }
                 }
             });
 
