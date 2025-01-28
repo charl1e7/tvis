@@ -1,6 +1,6 @@
 use crate::metrics::Metrics;
 
-use super::state::Settings;
+use super::state::{MemoryUnit, Settings};
 
 pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
     if !settings.is_visible() {
@@ -67,6 +67,23 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
                     .clicked()
                 {
                     settings.toggle_theme(ctx);
+                }
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("Memory Unit:");
+                for unit in [MemoryUnit::Bytes, MemoryUnit::Kilobytes, MemoryUnit::Megabytes, MemoryUnit::Gigabytes] {
+                    let label = match unit {
+                        MemoryUnit::Bytes => "Bytes",
+                        MemoryUnit::Kilobytes => "KB",
+                        MemoryUnit::Megabytes => "MB",
+                        MemoryUnit::Gigabytes => "GB",
+                    };
+                    if ui.selectable_label(settings.memory_unit == unit, label).clicked() {
+                        settings.memory_unit = unit;
+                    }
                 }
             });
 

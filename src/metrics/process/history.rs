@@ -35,12 +35,12 @@ impl ProcessMetrics {
         self.memory.push(value);
     }
 
-    pub fn get_cpu_history(&self) -> &Vec<f32> {
-        self.cpu.as_slice()
+    pub fn get_cpu_history(&self) -> Vec<f32> {
+        self.cpu.as_vec()
     }
 
-    pub fn get_memory_history(&self) -> &Vec<usize> {
-        self.memory.as_slice()
+    pub fn get_memory_history(&self) -> Vec<usize> {
+        self.memory.as_vec()
     }
 }
 
@@ -66,13 +66,13 @@ impl ProcessHistory {
             .update_memory(memory);
     }
 
-    pub fn get_cpu_history(&self, pid: &Pid) -> Option<&Vec<f32>> {
+    pub fn get_cpu_history(&self, pid: &Pid) -> Option<Vec<f32>> {
         self.histories
             .get(pid)
             .map(|metrics| metrics.get_cpu_history())
     }
 
-    pub fn get_memory_history(&self, pid: &Pid) -> Option<&Vec<usize>> {
+    pub fn get_memory_history(&self, pid: &Pid) -> Option<Vec<usize>> {
         self.histories
             .get(pid)
             .map(|metrics| metrics.get_memory_history())

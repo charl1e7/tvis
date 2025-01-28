@@ -85,7 +85,6 @@ impl ProcessView {
                             .genereal
                             .history
                             .get_cpu_history(&*GENERAL_STATS_PID)
-                            .cloned()
                             .unwrap_or_default(),
                         process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
@@ -93,34 +92,41 @@ impl ProcessView {
                 }
                 MetricType::Memory => {
                     ui.horizontal(|ui| {
+                        let (current_memory, unit) = settings.memory_unit.format_value(process_data.genereal.stats.current_memory as f32);
+                        let (peak_memory, _) = settings.memory_unit.format_value(process_data.genereal.stats.peak_memory as f32);
+                        let (avg_memory, _) = settings.memory_unit.format_value(process_data.genereal.stats.avg_memory as f32);
+                        
                         ui.label(format!(
-                            "Memory Usage: {:.1} MB",
-                            process_data.genereal.stats.current_memory
+                            "Memory Usage: {:.1} {}",
+                            current_memory, unit
                         ));
                         ui.label(" | ");
                         ui.label(format!(
-                            "Peak: {:.1} MB",
-                            process_data.genereal.stats.peak_memory
+                            "Peak: {:.1} {}",
+                            peak_memory, unit
                         ));
                         ui.label(" | ");
                         ui.label(format!(
-                            "AVG memory: {:.1} MB",
-                            process_data.genereal.stats.avg_memory
+                            "AVG memory: {:.1} {}",
+                            avg_memory, unit
                         ));
                     });
+                    let history = process_data
+                        .genereal
+                        .history
+                        .get_memory_history(&*GENERAL_STATS_PID)
+                        .unwrap_or_default();
+                    let history: Vec<f32> = history.iter()
+                        .map(|&x| settings.memory_unit.format_value(x as f32).0)
+                        .collect();
+                    let peak_memory = settings.memory_unit.format_value(process_data.genereal.stats.peak_memory as f32).0;
                     plot_metric(
                         ui,
                         "memory_plot_general_process",
                         100.0,
-                        process_data
-                            .genereal
-                            .history
-                            .get_memory_history(&*GENERAL_STATS_PID)
-                            .cloned()
-                            .unwrap_or_default(),
+                        history,
                         process_data.genereal.history.history_len,
-                        process_data.genereal.stats.peak_memory
-                            * (1.0 + settings.graph_scale_margin),
+                        peak_memory * (1.0 + settings.graph_scale_margin),
                     );
                 }
             }
@@ -228,9 +234,9 @@ impl ProcessView {
                                                 cpu_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(
                                                 ui,
-                                                format!("child_cpu_plot_{}", process.pid),
+                                                format!("cpu_plot_{}", process.pid),
                                                 80.0,
-                                                *cpu_history,
+                                                cpu_history.clone(),
                                                 process_data.history.history_len,
                                                 max_cpu * (1.0 + settings.graph_scale_margin),
                                             );
@@ -238,32 +244,39 @@ impl ProcessView {
                                     }
                                     MetricType::Memory => {
                                         ui.horizontal(|ui| {
+                                            let (current_memory, unit) = settings.memory_unit.format_value(process.current_memory as f32);
+                                            let (peak_memory, _) = settings.memory_unit.format_value(process.peak_memory as f32);
+                                            let (avg_memory, _) = settings.memory_unit.format_value(process.avg_memory as f32);
+                                            
                                             ui.label(format!(
-                                                "Memory Usage: {:.1} MB",
-                                                process.current_memory
+                                                "Memory Usage: {:.1} {}",
+                                                current_memory, unit
                                             ));
                                             ui.label(" | ");
                                             ui.label(format!(
-                                                "Peak: {:.1} MB",
-                                                process.peak_memory
+                                                "Peak: {:.1} {}",
+                                                peak_memory, unit
                                             ));
                                             ui.label(" | ");
                                             ui.label(format!(
-                                                "AVG memory: {:.1} MB",
-                                                process.avg_memory
+                                                "AVG memory: {:.1} {}",
+                                                avg_memory, unit
                                             ));
                                         });
                                         ui.add_space(5.0);
                                         if let Some(memory_history) =
                                             process_data.history.get_memory_history(&process.pid)
                                         {
+                                            let memory_history: Vec<f32> = memory_history.iter()
+                                                .map(|&x| settings.memory_unit.format_value(x as f32).0)
+                                                .collect();
                                             let max_memory =
                                                 memory_history.iter().copied().fold(0.0, f32::max);
                                             plot_metric(
                                                 ui,
                                                 format!("child_memory_plot_{}", process.pid),
                                                 80.0,
-                                                *memory_history,
+                                                memory_history,
                                                 process_data.history.history_len,
                                                 max_memory * (1.0 + settings.graph_scale_margin),
                                             );
