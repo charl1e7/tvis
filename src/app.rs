@@ -84,7 +84,7 @@ impl eframe::App for ProcessMonitorApp {
             });
         });
 
-        show_settings_window(ctx, &mut self.settings);
+        show_settings_window(ctx, &mut self.settings, self.metrics.clone());
 
         // let mut to_remove = None;
         egui::SidePanel::left("process_list")

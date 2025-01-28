@@ -1,8 +1,8 @@
 use crate::metrics::Metrics;
-
+use std::sync::{Arc, RwLock};
 use super::state::{MemoryUnit, Settings};
 
-pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
+pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metrics: Arc<RwLock<Metrics>>) {
     if !settings.is_visible() {
         return;
     }
@@ -37,24 +37,34 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
 
             ui.horizontal(|ui| {
                 ui.label("Update Interval:");
-                ui.add(
+                let response = ui.add(
                     egui::Slider::new(&mut settings.update_interval_ms, 200..=5000)
                         .step_by(100.0)
                         .suffix(" ms")
                         .text("Time between updates"),
                 );
+                if response.changed() {
+                    if let Ok(mut metrics) = metrics.write() {
+                        metrics.set_update_interval(settings.update_interval_ms as u64);
+                    }
+                }
             });
 
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("History Length:");
-                ui.add(
+                let response = ui.add(
                     egui::Slider::new(&mut settings.history_length, 10..=1000)
                         .step_by(10.0)
                         .suffix(" points")
                         .text("Number of data points in graphs"),
                 );
+                if response.changed() {
+                    if let Ok(mut metrics) = metrics.write() {
+                        metrics.history_len = settings.history_length;
+                    }
+                }
             });
 
             ui.separator();

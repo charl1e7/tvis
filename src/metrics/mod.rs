@@ -116,6 +116,7 @@ impl Metrics {
                     // Update history size if it changed
                     if process_data.history.history_len != self.history_len {
                         process_data.history = ProcessHistory::new(self.history_len);
+                        process_data.genereal.history = ProcessHistory::new(self.history_len);
                     }
                     // Remove inactive processes from history
                     process_data.history.cleanup_histories(&processes);
@@ -124,12 +125,14 @@ impl Metrics {
                     // Update process data
                     for process_pid in &processes {
                         if let Some(process) = self.monitor.get_process_by_pid(process_pid) {
+                            // update history
                             process_data
                                 .history
                                 .update_cpu(process.pid(), process.cpu_usage());
                             process_data
                                 .history
                                 .update_memory(process.pid(), process.memory() as usize);
+                            // collect process info
                             let process_info = self
                                 .monitor
                                 .collect_process_info(process, &process_data.history);
@@ -137,6 +140,7 @@ impl Metrics {
                             processes_stats.push(process_info);
                         }
                     }
+                    // update general history
                     process_data.processes_stats = processes_stats;
                     process_data
                         .genereal
@@ -146,6 +150,7 @@ impl Metrics {
                         .genereal
                         .history
                         .update_memory(*GENERAL_STATS_PID, general_stats.current_memory);
+                    // get general stats
                     let (peak_cpu, peak_memory, avg_cpu, avg_memory) = process_data
                         .genereal
                         .history
