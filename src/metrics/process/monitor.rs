@@ -56,42 +56,14 @@ impl ProcessMonitor {
     }
 
     pub fn collect_process_info(&self, process: &Process, history: &ProcessHistory) -> ProcessInfo {
-        let (avg_cpu, avg_memory, peak_cpu, peak_memory) = if let (Some(cpu_history), Some(mem_history)) = (
-            history.get_cpu_history(&process.pid()),
-            history.get_memory_history(&process.pid())
-        ) {
-            let mut sum_cpu = 0.0;
-            let mut sum_memory = 0.0;
-            let mut max_cpu = 0.0;
-            let mut max_memory = 0.0;
-            let len = cpu_history.len();
-
-            for i in 0..len {
-                let cpu_val = cpu_history[i];
-                let mem_val = mem_history[i];
-                
-                sum_cpu += cpu_val;
-                sum_memory += mem_val;
-                max_cpu = f32::max(max_cpu, cpu_val);
-                max_memory = f32::max(max_memory, mem_val);
-            }
-
-            (sum_cpu / len as f32, sum_memory / len as f32, max_cpu, max_memory)
-        } else {
-            (0.0, 0.0, 0.0, 0.0)
-        };
+        let (peak_cpu, peak_memory, avg_cpu, avg_memory) = history.get_data_history(&process.pid());
         let is_thread = process.thread_kind().is_some();
-        let memory_mb = if is_thread {
-            0.0
-        } else {
-            process.memory() as f32 / (1024.0 * 1024.0)
-        };
         ProcessInfo {
             name: process.name().to_string_lossy().into_owned(),
             pid: process.pid(),
             parent_pid: process.parent(),
-            cpu_usage: process.cpu_usage(),
-            memory_mb,
+            current_cpu: process.cpu_usage(),
+            current_memory: process.memory() as usize,
             is_thread,
             avg_cpu,
             avg_memory,

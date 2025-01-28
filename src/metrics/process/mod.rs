@@ -1,6 +1,6 @@
+mod circular_buffer;
 mod history;
 mod monitor;
-
 pub use history::*;
 pub use monitor::*;
 use serde::{Deserialize, Serialize};
@@ -68,13 +68,13 @@ pub struct ProcessInfo {
     pub name: String,
     pub pid: sysinfo::Pid,
     pub parent_pid: Option<sysinfo::Pid>,
-    pub cpu_usage: f32,
-    pub memory_mb: f32,
-    pub avg_cpu: f32,
-    pub avg_memory: f32,
-    pub peak_cpu: f32,
-    pub peak_memory: f32,
     pub is_thread: bool,
+    pub current_cpu: f32,
+    pub avg_cpu: f32,
+    pub peak_cpu: f32,
+    pub current_memory: usize,
+    pub peak_memory: usize,
+    pub avg_memory: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -110,11 +110,11 @@ pub struct ProcessGeneral {
 #[derive(Debug, Clone, Default)]
 pub struct ProcessGeneralStats {
     pub current_cpu: f32,
-    pub avg_cpu: f32,
-    pub avg_memory: f32,
     pub peak_cpu: f32,
-    pub current_memory: f32,
-    pub peak_memory_mb: f32,
+    pub avg_cpu: f32,
+    pub current_memory: usize,
+    pub peak_memory: usize,
+    pub avg_memory: usize,
     pub process_count: usize,
     pub thread_count: usize,
 }

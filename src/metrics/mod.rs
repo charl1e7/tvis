@@ -124,16 +124,16 @@ impl Metrics {
                     // Update process data
                     for process_pid in &processes {
                         if let Some(process) = self.monitor.get_process_by_pid(process_pid) {
+                            process_data
+                                .history
+                                .update_cpu(process.pid(), process.cpu_usage());
+                            process_data
+                                .history
+                                .update_memory(process.pid(), process.memory() as usize);
                             let process_info = self
                                 .monitor
                                 .collect_process_info(process, &process_data.history);
                             update_general_stats(&mut general_stats, &process_info);
-                            process_data
-                                .history
-                                .update_cpu(process_info.pid, process_info.cpu_usage);
-                            process_data
-                                .history
-                                .update_memory(process_info.pid, process_info.memory_mb);
                             processes_stats.push(process_info);
                         }
                     }
@@ -146,27 +146,14 @@ impl Metrics {
                         .genereal
                         .history
                         .update_memory(*GENERAL_STATS_PID, general_stats.current_memory);
-                    let (peak_cpu, peak_memory) = if let (Some(cpu_history), Some(mem_history)) = (
-                        process_data.genereal.history.get_cpu_history(&*GENERAL_STATS_PID),
-                        process_data.genereal.history.get_memory_history(&*GENERAL_STATS_PID)
-                    ) {
-                        let mut max_cpu = 0.0;
-                        let mut max_memory = 0.0;
-                        let len = cpu_history.len();
-            
-                        for i in 0..len {
-                            let cpu_val = cpu_history[i];
-                            let mem_val = mem_history[i];
-                            max_cpu = f32::max(max_cpu, cpu_val);
-                            max_memory = f32::max(max_memory, mem_val);
-                        }
-            
-                        (max_cpu, max_memory)
-                    } else {
-                        (0.0, 0.0)
-                    };
+                    let (peak_cpu, peak_memory, avg_cpu, avg_memory) = process_data
+                        .genereal
+                        .history
+                        .get_data_history(&*GENERAL_STATS_PID);
                     general_stats.peak_cpu = peak_cpu;
-                    general_stats.peak_memory_mb = peak_memory;
+                    general_stats.peak_memory = peak_memory;
+                    general_stats.avg_cpu = avg_cpu;
+                    general_stats.avg_memory = avg_memory;
                     process_data.genereal.stats = general_stats;
                 }
             } else {
@@ -180,11 +167,8 @@ fn update_general_stats(general_stats: &mut ProcessGeneralStats, process: &Proce
     if process.is_thread {
         general_stats.thread_count += 1;
     } else {
-        // general_stats.avg_cpu += process.cpu_usage;
         general_stats.process_count += 1;
-        general_stats.avg_cpu += process.avg_cpu;
-        general_stats.avg_memory += process.avg_memory;
-        general_stats.current_cpu += process.cpu_usage;
-        general_stats.current_memory += process.memory_mb;
+        general_stats.current_cpu += process.current_cpu;
+        general_stats.current_memory += process.current_memory;
     }
 }

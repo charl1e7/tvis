@@ -85,6 +85,7 @@ impl ProcessView {
                             .genereal
                             .history
                             .get_cpu_history(&*GENERAL_STATS_PID)
+                            .cloned()
                             .unwrap_or_default(),
                         process_data.genereal.history.history_len,
                         process_data.genereal.stats.peak_cpu * (1.0 + settings.graph_scale_margin),
@@ -99,7 +100,7 @@ impl ProcessView {
                         ui.label(" | ");
                         ui.label(format!(
                             "Peak: {:.1} MB",
-                            process_data.genereal.stats.peak_memory_mb
+                            process_data.genereal.stats.peak_memory
                         ));
                         ui.label(" | ");
                         ui.label(format!(
@@ -115,9 +116,10 @@ impl ProcessView {
                             .genereal
                             .history
                             .get_memory_history(&*GENERAL_STATS_PID)
+                            .cloned()
                             .unwrap_or_default(),
                         process_data.genereal.history.history_len,
-                        process_data.genereal.stats.peak_memory_mb
+                        process_data.genereal.stats.peak_memory
                             * (1.0 + settings.graph_scale_margin),
                     );
                 }
@@ -163,8 +165,8 @@ impl ProcessView {
                         }
                         SortType::Memory => {
                             processes.sort_by(|&a, &b| {
-                                b.memory_mb
-                                    .partial_cmp(&a.memory_mb)
+                                b.current_memory
+                                    .partial_cmp(&a.current_memory)
                                     .unwrap_or(std::cmp::Ordering::Equal)
                             });
                         }
@@ -211,13 +213,10 @@ impl ProcessView {
                                         ui.horizontal(|ui| {
                                             ui.label(format!(
                                                 "Current CPU: {:.1}%",
-                                                process.cpu_usage
+                                                process.current_cpu
                                             ));
                                             ui.label(" | ");
-                                                ui.label(format!(
-                                                    "Peak: {:.1}%",
-                                                    process.peak_cpu
-                                                ));
+                                            ui.label(format!("Peak: {:.1}%", process.peak_cpu));
                                             ui.label(" | ");
                                             ui.label(format!("Avg CPU: {:.1}%", process.avg_cpu));
                                         });
@@ -231,7 +230,7 @@ impl ProcessView {
                                                 ui,
                                                 format!("child_cpu_plot_{}", process.pid),
                                                 80.0,
-                                                cpu_history,
+                                                *cpu_history,
                                                 process_data.history.history_len,
                                                 max_cpu * (1.0 + settings.graph_scale_margin),
                                             );
@@ -241,13 +240,13 @@ impl ProcessView {
                                         ui.horizontal(|ui| {
                                             ui.label(format!(
                                                 "Memory Usage: {:.1} MB",
-                                                process.memory_mb
+                                                process.current_memory
                                             ));
                                             ui.label(" | ");
-                                                ui.label(format!(
-                                                    "Peak: {:.1} MB",
-                                                    process.peak_memory
-                                                ));
+                                            ui.label(format!(
+                                                "Peak: {:.1} MB",
+                                                process.peak_memory
+                                            ));
                                             ui.label(" | ");
                                             ui.label(format!(
                                                 "AVG memory: {:.1} MB",
@@ -264,7 +263,7 @@ impl ProcessView {
                                                 ui,
                                                 format!("child_memory_plot_{}", process.pid),
                                                 80.0,
-                                                memory_history,
+                                                *memory_history,
                                                 process_data.history.history_len,
                                                 max_memory * (1.0 + settings.graph_scale_margin),
                                             );
@@ -290,14 +289,16 @@ impl ProcessView {
         });
     }
 }
-fn plot_metric(
+fn plot_metric<T>(
     ui: &mut egui::Ui,
     id: impl std::hash::Hash,
     height: f32,
-    history: Vec<f32>,
+    history: Vec<T>,
     max_points: usize,
-    max_value: f32,
-) {
+    max_value: T,
+) where
+    T: Into<f64> + Copy,
+{
     let plot = egui_plot::Plot::new(id)
         .height(height)
         .show_axes(true)
@@ -305,7 +306,7 @@ fn plot_metric(
         .include_x(0.0)
         .include_x(max_points as f64)
         .include_y(0.0)
-        .include_y(max_value as f64)
+        .include_y(max_value.into())
         .allow_drag(false)
         .allow_zoom(false)
         .allow_scroll(false)
@@ -317,7 +318,7 @@ fn plot_metric(
         let points: Vec<[f64; 2]> = history
             .iter()
             .enumerate()
-            .map(|(i, &y)| [start_x + i as f64, y as f64])
+            .map(|(i, &y)| [start_x + i as f64, y.into()])
             .collect();
 
         plot_ui.line(egui_plot::Line::new(points).width(2.0));
