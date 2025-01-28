@@ -19,6 +19,7 @@ pub struct Metrics {
     pub monitor: ProcessMonitor,
     pub update_interval: Duration,
     pub history_len: usize,
+    processes_to_clear: Vec<ProcessIdentifier>,
 }
 
 impl Metrics {
@@ -27,6 +28,7 @@ impl Metrics {
             update_interval: Duration::from_millis(update_interval_ms as u64),
             history_len,
             processes: HashMap::new(),
+            processes_to_clear: Vec::new(),
             ..Default::default()
         }));
 
@@ -36,6 +38,7 @@ impl Metrics {
             monitor: ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64)),
             update_interval: update_interval,
             history_len: 10,
+            processes_to_clear: Vec::new(),
             ..Default::default()
         };
         thread::sleep(update_interval);
@@ -46,11 +49,15 @@ impl Metrics {
                 metrics_thread.update_interval = metrics_read.update_interval;
                 metrics_thread.history_len = metrics_read.history_len;
                 metrics_thread.monitored_processes = metrics_read.monitored_processes.clone();
+                for identifier in &metrics_read.processes_to_clear {
+                    metrics_thread.processes.remove(&identifier);
+                }
             }
             {
                 metrics_thread.update_metrics();
                 let mut metrics_write = metrics_clone.write().unwrap();
                 metrics_write.processes = metrics_thread.processes.clone();
+                metrics_write.processes_to_clear = vec![];
             }
             metrics_thread.monitor =
                 ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
@@ -79,11 +86,7 @@ impl Metrics {
     }
 
     pub fn clear_process_data(&mut self, identifier: &ProcessIdentifier) {
-        if let Some(process_data) = self.processes.get_mut(identifier) {
-            process_data.history = ProcessHistory::new(self.history_len);
-            process_data.processes_stats = vec![];
-            process_data.genereal = ProcessGeneral::default();
-        }
+        self.processes_to_clear.push(identifier.clone());
     }
 
     pub fn get_monitored_processes(&self) -> &[ProcessIdentifier] {
