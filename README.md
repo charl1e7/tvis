@@ -8,7 +8,7 @@
 
 A process monitoring tool that helps you track and analyze specific processes in real-time.
 
-![TVIS screenshot](gitassets/screen1.png)
+![Preview](gitassets/screen1.png)
 
 </div>
 
