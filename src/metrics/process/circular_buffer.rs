@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 #[derive(Clone)]
 pub struct CircularBuffer<T> {
     buffer: Vec<T>,

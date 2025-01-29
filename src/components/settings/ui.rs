@@ -1,8 +1,12 @@
+use super::state::{MemoryUnit, Settings, UpdateMode};
 use crate::metrics::Metrics;
 use std::sync::{Arc, RwLock};
-use super::state::{MemoryUnit, Settings, UpdateMode};
 
-pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metrics: Arc<RwLock<Metrics>>) {
+pub fn show_settings_window(
+    ctx: &egui::Context,
+    settings: &mut Settings,
+    metrics: Arc<RwLock<Metrics>>,
+) {
     if !settings.is_visible() {
         return;
     }
@@ -84,12 +88,15 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metric
 
             ui.horizontal(|ui| {
                 ui.label("Update Mode:");
-                for mode in [UpdateMode::Continuous,UpdateMode::Reactive, ] {
+                for mode in [UpdateMode::Continuous, UpdateMode::Reactive] {
                     let label = match mode {
                         UpdateMode::Continuous => "Continuous",
                         UpdateMode::Reactive => "Reactive",
                     };
-                    if ui.selectable_label(settings.update_mode == mode, label).clicked() {
+                    if ui
+                        .selectable_label(settings.update_mode == mode, label)
+                        .clicked()
+                    {
                         settings.update_mode = mode;
                         ctx.request_repaint();
                     }
@@ -100,14 +107,22 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings, metric
 
             ui.horizontal(|ui| {
                 ui.label("Memory Unit:");
-                for unit in [MemoryUnit::Bytes, MemoryUnit::Kilobytes, MemoryUnit::Megabytes, MemoryUnit::Gigabytes] {
+                for unit in [
+                    MemoryUnit::Bytes,
+                    MemoryUnit::Kilobytes,
+                    MemoryUnit::Megabytes,
+                    MemoryUnit::Gigabytes,
+                ] {
                     let label = match unit {
                         MemoryUnit::Bytes => "Bytes",
                         MemoryUnit::Kilobytes => "KB",
                         MemoryUnit::Megabytes => "MB",
                         MemoryUnit::Gigabytes => "GB",
                     };
-                    if ui.selectable_label(settings.memory_unit == unit, label).clicked() {
+                    if ui
+                        .selectable_label(settings.memory_unit == unit, label)
+                        .clicked()
+                    {
                         settings.memory_unit = unit;
                     }
                 }

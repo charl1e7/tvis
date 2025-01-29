@@ -86,7 +86,7 @@ impl eframe::App for ProcessMonitorApp {
 
         show_settings_window(ctx, &mut self.settings, self.metrics.clone());
 
-        // let mut to_remove = None;
+        let mut to_remove = None;
         egui::SidePanel::left("process_list")
             .resizable(true)
             .min_width(150.0)
@@ -116,11 +116,16 @@ impl eframe::App for ProcessMonitorApp {
                                 if self.active_process.as_ref() == Some(process) {
                                     self.active_process = None;
                                 }
-                                let mut metrics = self.metrics.write().unwrap();
-                                metrics.remove_selected_process(process);
+                                to_remove = Some((i, process.clone()));
                             }
                         });
                     });
+                }
+
+                if let Some((idx, process)) = to_remove {
+                    self.monitored_processes.remove(idx);
+                    let mut metrics = self.metrics.write().unwrap();
+                    metrics.remove_selected_process(&process);
                 }
             });
 

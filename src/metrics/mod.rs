@@ -58,6 +58,7 @@ impl Metrics {
                 let mut metrics_write = metrics_clone.write().unwrap();
                 metrics_write.processes = metrics_thread.processes.clone();
                 metrics_write.processes_to_clear = vec![];
+                metrics_write.monitor = metrics_thread.monitor;
             }
             metrics_thread.monitor =
                 ProcessMonitor::new(Duration::from_millis(update_interval_ms as u64));
@@ -102,6 +103,9 @@ impl Metrics {
     }
 
     fn update_metrics(&mut self) {
+        // Очистка процессов, которые больше не отслеживаются
+        self.cleanup_unmonitored_processes();
+
         for process_identifier in &self.monitored_processes {
             self.processes
                 .entry(process_identifier.clone())
@@ -168,6 +172,11 @@ impl Metrics {
                 self.processes.remove(&process_identifier);
             }
         }
+    }
+
+    fn cleanup_unmonitored_processes(&mut self) {
+        self.processes
+            .retain(|pid, _| self.monitored_processes.contains(pid));
     }
 }
 

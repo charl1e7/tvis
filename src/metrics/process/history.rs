@@ -98,11 +98,7 @@ impl ProcessHistory {
             }
 
             let avg_cpu = if len == 0 { 0.0 } else { sum_cpu / len as f32 };
-            let avg_memory = if len == 0 {
-                0
-            } else {
-                sum_memory / len
-            };
+            let avg_memory = if len == 0 { 0 } else { sum_memory / len };
 
             (max_cpu, max_memory, avg_cpu, avg_memory)
         } else {

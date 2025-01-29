@@ -92,34 +92,35 @@ impl ProcessView {
                 }
                 MetricType::Memory => {
                     ui.horizontal(|ui| {
-                        let (current_memory, unit) = settings.memory_unit.format_value(process_data.genereal.stats.current_memory as f32);
-                        let (peak_memory, _) = settings.memory_unit.format_value(process_data.genereal.stats.peak_memory as f32);
-                        let (avg_memory, _) = settings.memory_unit.format_value(process_data.genereal.stats.avg_memory as f32);
-                        
-                        ui.label(format!(
-                            "Memory Usage: {:.1} {}",
-                            current_memory, unit
-                        ));
+                        let (current_memory, unit) = settings
+                            .memory_unit
+                            .format_value(process_data.genereal.stats.current_memory as f32);
+                        let (peak_memory, _) = settings
+                            .memory_unit
+                            .format_value(process_data.genereal.stats.peak_memory as f32);
+                        let (avg_memory, _) = settings
+                            .memory_unit
+                            .format_value(process_data.genereal.stats.avg_memory as f32);
+
+                        ui.label(format!("Memory Usage: {:.1} {}", current_memory, unit));
                         ui.label(" | ");
-                        ui.label(format!(
-                            "Peak: {:.1} {}",
-                            peak_memory, unit
-                        ));
+                        ui.label(format!("Peak: {:.1} {}", peak_memory, unit));
                         ui.label(" | ");
-                        ui.label(format!(
-                            "AVG memory: {:.1} {}",
-                            avg_memory, unit
-                        ));
+                        ui.label(format!("AVG memory: {:.1} {}", avg_memory, unit));
                     });
                     let history = process_data
                         .genereal
                         .history
                         .get_memory_history(&*GENERAL_STATS_PID)
                         .unwrap_or_default();
-                    let history: Vec<f32> = history.iter()
+                    let history: Vec<f32> = history
+                        .iter()
                         .map(|&x| settings.memory_unit.format_value(x as f32).0)
                         .collect();
-                    let peak_memory = settings.memory_unit.format_value(process_data.genereal.stats.peak_memory as f32).0;
+                    let peak_memory = settings
+                        .memory_unit
+                        .format_value(process_data.genereal.stats.peak_memory as f32)
+                        .0;
                     plot_metric(
                         ui,
                         "memory_plot_general_process",
@@ -244,19 +245,22 @@ impl ProcessView {
                                     }
                                     MetricType::Memory => {
                                         ui.horizontal(|ui| {
-                                            let (current_memory, unit) = settings.memory_unit.format_value(process.current_memory as f32);
-                                            let (peak_memory, _) = settings.memory_unit.format_value(process.peak_memory as f32);
-                                            let (avg_memory, _) = settings.memory_unit.format_value(process.avg_memory as f32);
-                                            
+                                            let (current_memory, unit) = settings
+                                                .memory_unit
+                                                .format_value(process.current_memory as f32);
+                                            let (peak_memory, _) = settings
+                                                .memory_unit
+                                                .format_value(process.peak_memory as f32);
+                                            let (avg_memory, _) = settings
+                                                .memory_unit
+                                                .format_value(process.avg_memory as f32);
+
                                             ui.label(format!(
                                                 "Memory Usage: {:.1} {}",
                                                 current_memory, unit
                                             ));
                                             ui.label(" | ");
-                                            ui.label(format!(
-                                                "Peak: {:.1} {}",
-                                                peak_memory, unit
-                                            ));
+                                            ui.label(format!("Peak: {:.1} {}", peak_memory, unit));
                                             ui.label(" | ");
                                             ui.label(format!(
                                                 "AVG memory: {:.1} {}",
@@ -267,8 +271,11 @@ impl ProcessView {
                                         if let Some(memory_history) =
                                             process_data.history.get_memory_history(&process.pid)
                                         {
-                                            let memory_history: Vec<f32> = memory_history.iter()
-                                                .map(|&x| settings.memory_unit.format_value(x as f32).0)
+                                            let memory_history: Vec<f32> = memory_history
+                                                .iter()
+                                                .map(|&x| {
+                                                    settings.memory_unit.format_value(x as f32).0
+                                                })
                                                 .collect();
                                             let max_memory =
                                                 memory_history.iter().copied().fold(0.0, f32::max);
