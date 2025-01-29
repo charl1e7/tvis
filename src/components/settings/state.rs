@@ -1,10 +1,37 @@
+#[derive(serde::Deserialize, serde::Serialize, Clone, Copy, PartialEq)]
+pub enum UpdateMode {
+    Reactive,
+    Continuous,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Clone, Copy, PartialEq)]
+pub enum MemoryUnit {
+    Bytes,
+    Kilobytes,
+    Megabytes,
+    Gigabytes,
+}
+
+impl MemoryUnit {
+    pub fn format_value(&self, bytes: f32) -> (f32, &'static str) {
+        match self {
+            MemoryUnit::Bytes => (bytes, "B"),
+            MemoryUnit::Kilobytes => (bytes / 1024.0, "KB"),
+            MemoryUnit::Megabytes => (bytes / (1024.0 * 1024.0), "MB"),
+            MemoryUnit::Gigabytes => (bytes / (1024.0 * 1024.0 * 1024.0), "GB"),
+        }
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Settings {
     pub scale: f32,
     pub font_size: f32,
     pub graph_scale_margin: f32,
-    pub update_interval_ms: u64,
+    pub update_interval_ms: usize,
     pub history_length: usize,
+    pub memory_unit: MemoryUnit,
+    pub update_mode: UpdateMode,
     #[serde(skip)]
     show_window: bool,
 }
@@ -17,6 +44,8 @@ impl Default for Settings {
             graph_scale_margin: 0.35,
             update_interval_ms: 1000,
             history_length: 100,
+            memory_unit: MemoryUnit::Megabytes,
+            update_mode: UpdateMode::Continuous,
             show_window: false,
         }
     }

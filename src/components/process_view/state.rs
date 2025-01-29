@@ -1,11 +1,9 @@
-use crate::process::{MetricType, ProcessHistory, ProcessStats, SortType};
+use crate::metrics::process::{MetricType, ProcessHistory, ProcessIdentifier, SortType};
 use sysinfo::Pid;
 
-pub struct ProcessView<'a> {
-    pub stats: ProcessStats,
-    pub history: &'a ProcessHistory,
-    pub process_idx: usize,
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
+pub struct ProcessView {
     pub sort_type: SortType,
-    pub current_metric: &'a mut MetricType,
-    pub scroll_target: &'a mut Option<Pid>,
+    pub current_metric: MetricType,
+    pub scroll_target: Option<ProcessIdentifier>,
 }

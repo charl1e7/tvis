@@ -2,6 +2,5 @@
 
 pub mod app;
 pub mod components;
-pub mod process;
-
+pub mod metrics;
 pub use app::ProcessMonitorApp;

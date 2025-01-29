@@ -1,6 +1,12 @@
-use super::state::Settings;
+use super::state::{MemoryUnit, Settings, UpdateMode};
+use crate::metrics::Metrics;
+use std::sync::{Arc, RwLock};
 
-pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
+pub fn show_settings_window(
+    ctx: &egui::Context,
+    settings: &mut Settings,
+    metrics: Arc<RwLock<Metrics>>,
+) {
     if !settings.is_visible() {
         return;
     }
@@ -35,24 +41,34 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
 
             ui.horizontal(|ui| {
                 ui.label("Update Interval:");
-                ui.add(
+                let response = ui.add(
                     egui::Slider::new(&mut settings.update_interval_ms, 200..=5000)
                         .step_by(100.0)
                         .suffix(" ms")
                         .text("Time between updates"),
                 );
+                if response.changed() {
+                    if let Ok(mut metrics) = metrics.write() {
+                        metrics.set_update_interval(settings.update_interval_ms as u64);
+                    }
+                }
             });
 
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("History Length:");
-                ui.add(
+                let response = ui.add(
                     egui::Slider::new(&mut settings.history_length, 10..=1000)
                         .step_by(10.0)
                         .suffix(" points")
                         .text("Number of data points in graphs"),
                 );
+                if response.changed() {
+                    if let Ok(mut metrics) = metrics.write() {
+                        metrics.history_len = settings.history_length;
+                    }
+                }
             });
 
             ui.separator();
@@ -65,6 +81,50 @@ pub fn show_settings_window(ctx: &egui::Context, settings: &mut Settings) {
                     .clicked()
                 {
                     settings.toggle_theme(ctx);
+                }
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("Update Mode:");
+                for mode in [UpdateMode::Continuous, UpdateMode::Reactive] {
+                    let label = match mode {
+                        UpdateMode::Continuous => "Continuous",
+                        UpdateMode::Reactive => "Reactive",
+                    };
+                    if ui
+                        .selectable_label(settings.update_mode == mode, label)
+                        .clicked()
+                    {
+                        settings.update_mode = mode;
+                        ctx.request_repaint();
+                    }
+                }
+            });
+
+            ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("Memory Unit:");
+                for unit in [
+                    MemoryUnit::Bytes,
+                    MemoryUnit::Kilobytes,
+                    MemoryUnit::Megabytes,
+                    MemoryUnit::Gigabytes,
+                ] {
+                    let label = match unit {
+                        MemoryUnit::Bytes => "Bytes",
+                        MemoryUnit::Kilobytes => "KB",
+                        MemoryUnit::Megabytes => "MB",
+                        MemoryUnit::Gigabytes => "GB",
+                    };
+                    if ui
+                        .selectable_label(settings.memory_unit == unit, label)
+                        .clicked()
+                    {
+                        settings.memory_unit = unit;
+                    }
                 }
             });
 
