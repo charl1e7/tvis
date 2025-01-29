@@ -7,7 +7,13 @@ include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 
 [package.metadata.docs.rs]
 all-features = true
-targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown", "x86_64-pc-windows-msvc", "x86_64-apple-darwin", "aarch64-linux-android"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "wasm32-unknown-unknown",
+    "x86_64-pc-windows-msvc",
+    "x86_64-apple-darwin",
+    "aarch64-linux-android",
+]
 
 [dependencies]
 egui = "0.30"
@@ -20,7 +26,14 @@ eframe = { version = "0.30", default-features = false, features = [
 ] }
 egui_plot = "0.30"
 log = "0.4"
-sysinfo = { version = "0.33" }
+sysinfo = { version = "0.33", default-features = false, features = [
+    # "component",
+    # "disk",
+    # "network",
+    "system",
+    # "user",
+    # "multithread"
+] }
 serde = { version = "1", features = ["derive"] }
 
 # native:
@@ -30,14 +43,14 @@ env_logger = "0.11"
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
-web-sys = "0.3"           # to access the DOM (to hide the loading text)
+web-sys = "0.3"              # to access the DOM (to hide the loading text)
 
-[profile.release]
-opt-level = 2 # fast and small wasm
+# [profile.release]
+# opt-level = 2 # fast and small wasm
 
-# Optimize all dependencies even in debug builds:
-[profile.dev.package."*"]
-opt-level = 2
+# # Optimize all dependencies even in debug builds:
+# [profile.dev.package."*"]
+# opt-level = 2
 
 
 [patch.crates-io]

@@ -6,11 +6,11 @@
         "**/CVS": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
-        ".vscode": true,
-        "target": true
+        "target": true,
+        ".vscode": true
     },
     "hide-files.files": [
-        ".vscode",
-        "target"
+        "target",
+        ".vscode"
     ]
 }

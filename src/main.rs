@@ -8,6 +8,7 @@ use tvis::ProcessMonitorApp;
 fn main() -> eframe::Result<()> {
     use tvis::metrics::{process::ProcessIdentifier, Metrics};
 
+    #[cfg(debug_assertions)]
     env_logger::builder()
         .filter_level(log::LevelFilter::Info)
         .init();
