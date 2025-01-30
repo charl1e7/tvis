@@ -30,11 +30,10 @@ You can download the pre-built binary for your platform from the [Releases](http
 If you prefer to build from source or need a specific configuration:
 
 ```bash
-git clone https://github.com/charl1e7/tvis.git
-cd tvis
-cargo build --release
-
-# The binary will be available at ./target/release/
+#### Option 2: Install via Cargo  
+cargo install --git https://github.com/charl1e7/tvis
+#### After installation, you can run the application using:
+tvis
 ```
 
 ## 🤝 Contributing
