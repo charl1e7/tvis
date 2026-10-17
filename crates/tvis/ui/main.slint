@@ -1,0 +1,150 @@
+import { Theme } from "theme.slint";
+import { Backend } from "backend.slint";
+import { Icon, Label, Btn, StatusDot, Badge } from "components/basic.slint";
+import { DashboardPage } from "pages/dashboard.slint";
+import { MonitorPage } from "pages/monitor.slint";
+import { ProcessesPage } from "pages/processes.slint";
+import { AlertsPage } from "pages/alerts.slint";
+import { SettingsPage } from "pages/settings.slint";
+
+export { Backend, Theme }
+
+component NavItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    in property <int> badge: 0;
+    callback clicked;
+    height: 40px;
+    border-radius: 10px;
+    background: selected ? Theme.accent-soft : (ta.has-hover ? Theme.surface-hover : transparent);
+    animate background { duration: 100ms; }
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+        Icon { source: root.icon; color: root.selected ? Theme.accent : Theme.text-dim; size: 18px; y: (parent.height - self.height) / 2; }
+        Text {
+            text: root.text;
+            color: root.selected ? Theme.text : Theme.text-dim;
+            font-size: Theme.fs-body;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if root.badge > 0: Badge { text: "\{root.badge}"; tint: Theme.bad; y: (parent.height - self.height) / 2; }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "TVIS — Process Profiler";
+    background: Theme.bg;
+    min-width: 1000px;
+    min-height: 640px;
+    preferred-width: 1360px;
+    preferred-height: 860px;
+    icon: @image-url("../../../assets/icon-256.png");
+
+    HorizontalLayout {
+        // ── sidebar ─────────────────────────────────
+        Rectangle {
+            width: 220px;
+            background: Theme.sidebar;
+            Rectangle { x: parent.width - 1px; width: 1px; background: Theme.border-soft; }
+            VerticalLayout {
+                padding: 16px;
+                spacing: 4px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    padding-bottom: 18px;
+                    padding-left: 4px;
+                    Rectangle {
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 9px;
+                        background: @linear-gradient(135deg, Theme.accent 0%, Theme.accent.darker(0.35) 100%);
+                        Icon { source: @image-url("icons/activity.svg"); color: Theme.on-accent; size: 18px; x: 6px; y: 6px; }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: "TVIS"; font-size: 16px; font-weight: 800; color: Theme.text; letter-spacing: 1px; }
+                    }
+                }
+                NavItem { icon: @image-url("icons/dashboard.svg"); text: "Dashboard"; selected: Backend.page == 0; clicked => { Backend.go(0); } }
+                NavItem { icon: @image-url("icons/activity.svg"); text: "Monitor"; selected: Backend.page == 1; clicked => { Backend.go(1); } }
+                NavItem { icon: @image-url("icons/list.svg"); text: "Processes"; selected: Backend.page == 2; clicked => { Backend.go(2); } }
+                NavItem { icon: @image-url("icons/bell.svg"); text: "Alerts"; selected: Backend.page == 3; badge: Backend.alerts-firing; clicked => { Backend.go(3); } }
+                Rectangle { vertical-stretch: 1; }
+                NavItem { icon: @image-url("icons/sliders.svg"); text: "Settings"; selected: Backend.page == 4; clicked => { Backend.go(4); } }
+                Label { text: "v\{Backend.version}"; color: Theme.text-faint; font-size: Theme.fs-caption; horizontal-alignment: center; height: 24px; }
+            }
+        }
+
+        VerticalLayout {
+            // ── top bar ─────────────────────────────
+            Rectangle {
+                height: 52px;
+                background: Theme.bg;
+                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border-soft; }
+                HorizontalLayout {
+                    padding-left: 24px;
+                    padding-right: 24px;
+                    spacing: 14px;
+                    StatusDot { on: Backend.live && !Backend.paused; tint: Theme.good; y: 22px; }
+                    Label { text: Backend.paused ? "Paused" : "Live"; font-weight: 700; vertical-alignment: center; }
+                    Label { text: Backend.sampling-label; color: Theme.text-faint; vertical-alignment: center; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Label { text: Backend.host; color: Theme.text-dim; vertical-alignment: center; }
+                    Btn {
+                        text: Backend.paused ? "Resume" : "Pause";
+                        icon: Backend.paused ? @image-url("icons/play.svg") : @image-url("icons/pause.svg");
+                        y: 10px;
+                        active: Backend.paused;
+                        clicked => { Backend.toggle-pause(); }
+                    }
+                }
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+                if Backend.page == 0: DashboardPage { }
+                if Backend.page == 1: MonitorPage { }
+                if Backend.page == 2: ProcessesPage { }
+                if Backend.page == 3: AlertsPage { }
+                if Backend.page == 4: SettingsPage { }
+            }
+        }
+    }
+
+    // toast
+    if Backend.toast-text != "": Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - 28px;
+        width: Math.min(560px, parent.width - 60px);
+        height: 44px;
+        border-radius: 10px;
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Backend.toast-kind == 2 ? Theme.bad : Backend.toast-kind == 1 ? Theme.good : Theme.border;
+        drop-shadow-blur: 20px;
+        drop-shadow-color: Theme.shadow;
+        drop-shadow-offset-y: 6px;
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 8px;
+            spacing: 10px;
+            Icon {
+                source: Backend.toast-kind == 2 ? @image-url("icons/alert.svg") : Backend.toast-kind == 1 ? @image-url("icons/check.svg") : @image-url("icons/info.svg");
+                color: Backend.toast-kind == 2 ? Theme.bad : Backend.toast-kind == 1 ? Theme.good : Theme.accent;
+                y: 14px;
+                size: 16px;
+            }
+            Label { text: Backend.toast-text; vertical-alignment: center; horizontal-stretch: 1; }
+            Btn { kind: 2; icon: @image-url("icons/x.svg"); y: 6px; clicked => { Backend.dismiss-toast(); } }
+        }
+    }
+}

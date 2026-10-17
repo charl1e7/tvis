@@ -1,0 +1,393 @@
+import { Theme } from "../theme.slint";
+import { Backend } from "../backend.slint";
+import { Card, Label, Caption, Meter, Sparkline, Btn, Icon, Badge, StatusDot, Segmented, Toggle } from "../components/basic.slint";
+import { LineChart } from "../components/chart.slint";
+import { MetricCard, WatchRow, InsightRow, TreeRow } from "../types.slint";
+
+component WatchItem inherits Rectangle {
+    in property <WatchRow> row;
+    height: 66px;
+    border-radius: 10px;
+    background: row.selected ? Theme.accent-soft : (ta.has-hover ? Theme.surface-hover : transparent);
+    animate background { duration: 100ms; }
+    if row.selected: Rectangle {
+        x: 0;
+        width: 3px;
+        height: 28px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { Backend.select-target(root.row.id); }
+    }
+    Sparkline {
+        x: parent.width - 86px;
+        y: 12px;
+        width: 70px;
+        height: 24px;
+        commands: root.row.spark;
+        tint: root.row.selected ? Theme.accent : Theme.text-faint;
+        filled: false;
+    }
+    VerticalLayout {
+        padding-left: 14px;
+        padding-right: 12px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 3px;
+        HorizontalLayout {
+            spacing: 8px;
+            StatusDot { on: root.row.running; tint: root.row.alerting ? Theme.bad : Theme.good; y: 4px; }
+            Label {
+                text: root.row.title;
+                font-weight: 600;
+                horizontal-stretch: 1;
+                max-width: 130px;
+            }
+        }
+        Label { text: root.row.subtitle; color: Theme.text-faint; font-size: Theme.fs-caption; }
+        HorizontalLayout {
+            spacing: 10px;
+            Label { text: root.row.cpu; color: Theme.text-dim; font-size: Theme.fs-small; font-weight: 600; }
+            Label { text: root.row.mem; color: Theme.text-dim; font-size: Theme.fs-small; }
+        }
+    }
+    if ta.has-hover: Btn {
+        kind: 2;
+        icon: @image-url("../icons/x.svg");
+        width: 24px;
+        height: 24px;
+        x: parent.width - 32px;
+        y: parent.height - 32px;
+        clicked => { Backend.unwatch(root.row.id); }
+    }
+}
+
+component MetricTile inherits Rectangle {
+    in property <MetricCard> card;
+    border-radius: Theme.radius;
+    background: card.selected ? Theme.accent-soft : Theme.surface;
+    border-width: 1px;
+    border-color: card.selected ? Theme.accent.with-alpha(0.55) : (ta.has-hover ? Theme.border : Theme.border-soft);
+    animate background { duration: 100ms; }
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { Backend.select-metric(root.card.id); }
+    }
+    Sparkline {
+        x: parent.width - 96px;
+        y: 14px;
+        width: 80px;
+        height: 30px;
+        commands: root.card.spark;
+        tint: root.card.color;
+    }
+    VerticalLayout {
+        padding: 14px;
+        spacing: 3px;
+        HorizontalLayout {
+            spacing: 6px;
+            Rectangle { width: 8px; height: 8px; y: 3px; border-radius: 2px; background: root.card.color; }
+            Caption { text: root.card.name.to-uppercase(); }
+        }
+        Text {
+            text: root.card.value;
+            font-size: 22px;
+            font-weight: 700;
+            color: Theme.text;
+        }
+        Label { text: root.card.detail; color: Theme.text-dim; font-size: Theme.fs-caption; }
+        Label {
+            text: root.card.trend;
+            font-size: Theme.fs-caption;
+            font-weight: 600;
+            color: root.card.trend-dir > 0 ? Theme.warn : root.card.trend-dir < 0 ? Theme.good : Theme.text-faint;
+        }
+    }
+}
+
+component InsightBanner inherits Rectangle {
+    in property <InsightRow> row;
+    property <color> tint: row.severity >= 2 ? Theme.bad : row.severity == 1 ? Theme.warn : Theme.accent;
+    height: 48px;
+    border-radius: 10px;
+    background: tint.with-alpha(0.10);
+    border-width: 1px;
+    border-color: tint.with-alpha(0.35);
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        Icon {
+            source: row.severity >= 1 ? @image-url("../icons/alert.svg") : @image-url("../icons/info.svg");
+            color: root.tint;
+            size: 18px;
+            y: (parent.height - self.height) / 2;
+        }
+        Label { text: root.row.title; font-weight: 700; color: root.tint; vertical-alignment: center; }
+        Label { text: root.row.detail; color: Theme.text-dim; vertical-alignment: center; horizontal-stretch: 1; }
+    }
+}
+
+component TreeLine inherits Rectangle {
+    in property <TreeRow> row;
+    height: 36px;
+    background: ta.has-hover ? Theme.surface-hi : transparent;
+    ta := TouchArea { }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
+        Rectangle {
+            horizontal-stretch: 1;
+            min-width: 120px;
+            Label {
+                x: root.row.depth * 16px;
+                width: parent.width - self.x;
+                text: (root.row.is-thread ? "⤷ " : "") + root.row.name;
+                color: root.row.is-thread ? Theme.text-dim : Theme.text;
+                font-weight: root.row.depth == 0 ? 700 : 500;
+                vertical-alignment: center;
+            }
+        }
+        Label { text: root.row.pid; width: 64px; color: Theme.text-faint; vertical-alignment: center; horizontal-alignment: right; font-size: Theme.fs-small; }
+        Rectangle {
+            width: 130px;
+            Meter { y: parent.height - 7px; height: 3px; frac: root.row.cpu-frac; tint: Theme.series[0]; }
+            Label { text: root.row.cpu; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+        }
+        Rectangle {
+            width: 130px;
+            Meter { y: parent.height - 7px; height: 3px; frac: root.row.mem-frac; tint: Theme.series[1]; }
+            Label { text: root.row.mem; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+        }
+        Label { text: root.row.threads; width: 54px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Label { text: root.row.io; width: 120px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Sparkline {
+            width: 70px;
+            commands: root.row.spark;
+            tint: Theme.accent;
+            filled: false;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+        }
+    }
+}
+
+component Legend inherits Rectangle {
+    HorizontalLayout {
+        spacing: 16px;
+        alignment: start;
+        for line in Backend.chart.lines: HorizontalLayout {
+            spacing: 6px;
+            Rectangle { width: 10px; height: 3px; y: 7px; border-radius: 2px; background: line.color; }
+            Label { text: line.name; color: Theme.text-dim; font-size: Theme.fs-small; max-width: 160px; }
+            Label { text: line.last; color: Theme.text; font-size: Theme.fs-small; font-weight: 700; }
+        }
+    }
+}
+
+component Empty inherits Rectangle {
+    VerticalLayout {
+        alignment: center;
+        spacing: 14px;
+        Icon { source: @image-url("../icons/eye.svg"); size: 40px; color: Theme.text-faint; x: (parent.width - self.width) / 2; }
+        Text { text: "Nothing is being watched yet"; font-size: Theme.fs-h1; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+        Text {
+            text: "Pick any process to record its CPU, memory, threads, disk I/O and open files over time.";
+            font-size: Theme.fs-body;
+            color: Theme.text-dim;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            alignment: center;
+            Btn { kind: 0; text: "Browse processes"; icon: @image-url("../icons/list.svg"); clicked => { Backend.go(2); } }
+        }
+    }
+}
+
+export component MonitorPage inherits Rectangle {
+    HorizontalLayout {
+        // ── watchlist ─────────────────────────────
+        Rectangle {
+            width: 280px;
+            background: Theme.sidebar.with-alpha(0.5);
+            border-width: 0px;
+            Rectangle { x: parent.width - 1px; width: 1px; background: Theme.border-soft; }
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    Caption { text: "WATCHLIST · \{Backend.watchlist.length}"; horizontal-stretch: 1; vertical-alignment: center; }
+                    Btn {
+                        kind: 1;
+                        icon: @image-url("../icons/plus.svg");
+                        width: 30px;
+                        height: 28px;
+                        clicked => { Backend.go(2); }
+                    }
+                }
+                ScrollView {
+                    VerticalLayout {
+                        spacing: 4px;
+                        alignment: start;
+                        for row in Backend.watchlist: WatchItem { row: row; }
+                    }
+                }
+            }
+        }
+
+        if !Backend.has-selection: Empty { horizontal-stretch: 1; }
+
+        if Backend.has-selection: ScrollView {
+            horizontal-stretch: 1;
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+                alignment: start;
+
+                // header
+                HorizontalLayout {
+                    spacing: 14px;
+                    VerticalLayout {
+                        spacing: 4px;
+                        horizontal-stretch: 1;
+                        HorizontalLayout {
+                            spacing: 12px;
+                            alignment: start;
+                            Text { text: Backend.monitor.title; font-size: Theme.fs-h1; font-weight: 700; color: Theme.text; vertical-alignment: center; }
+                            Badge {
+                                text: Backend.monitor.running ? "RUNNING" : "WAITING FOR PROCESS";
+                                tint: Backend.monitor.running ? Theme.good : Theme.warn;
+                                y: 5px;
+                            }
+                        }
+                        Label { text: Backend.monitor.subtitle; color: Theme.text-dim; }
+                    }
+                    Btn { text: "CSV"; icon: @image-url("../icons/download.svg"); clicked => { Backend.export-target(Backend.monitor.id, 0); } }
+                    Btn { text: "JSON"; icon: @image-url("../icons/download.svg"); clicked => { Backend.export-target(Backend.monitor.id, 1); } }
+                    Btn { icon: @image-url("../icons/refresh.svg"); clicked => { Backend.clear-history(Backend.monitor.id); } }
+                    Btn { kind: 3; text: "Stop watching"; icon: @image-url("../icons/trash.svg"); clicked => { Backend.unwatch(Backend.monitor.id); } }
+                }
+
+                for ins in Backend.insights: InsightBanner { row: ins; }
+
+                // metric tiles
+                Rectangle {
+                    property <int> cols: self.width > 1100px ? 4 : self.width > 760px ? 3 : 2;
+                    property <length> gap: 12px;
+                    property <length> tile-w: (self.width - gap * (cols - 1)) / cols;
+                    height: Math.ceil(Backend.cards.length / cols) * (112px + gap) - gap;
+                    for card[i] in Backend.cards: MetricTile {
+                        card: card;
+                        x: Math.mod(i, parent.cols) * (parent.tile-w + parent.gap);
+                        y: Math.floor(i / parent.cols) * (112px + parent.gap);
+                        width: parent.tile-w;
+                        height: 112px;
+                    }
+                }
+
+                // chart
+                Card {
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 10px;
+                        HorizontalLayout {
+                            spacing: 12px;
+                            Text {
+                                text: Backend.chart-title;
+                                font-size: Theme.fs-title;
+                                font-weight: 700;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                            Segmented {
+                                items: ["Aggregate", "Per process", "Compare"];
+                                current <=> Backend.chart-view;
+                                selected => { Backend.view-changed(); }
+                            }
+                            Segmented {
+                                items: ["30s", "1m", "5m", "15m", "1h"];
+                                current <=> Backend.window-index;
+                                selected => { Backend.view-changed(); }
+                            }
+                        }
+                        Legend { height: Backend.chart.lines.length > 1 ? 20px : 0px; visible: Backend.chart.lines.length > 1; }
+                        LineChart {
+                            height: 320px;
+                            data: Backend.chart;
+                            fill: Backend.chart-fill;
+                            grid: Backend.chart-grid;
+                            line-width: 1.2px * (Backend.line-width + 1);
+                            hover-frac: Backend.hover-frac;
+                            hover-time: Backend.hover-time;
+                            hover-items: Backend.hover-items;
+                            hovered(f) => { Backend.chart-hover(f); }
+                            left => { Backend.chart-leave(); }
+                        }
+                    }
+                }
+
+                // statistics
+                Card {
+                    height: 78px;
+                    HorizontalLayout {
+                        padding: 16px;
+                        spacing: 8px;
+                        for stat in Backend.stats: VerticalLayout {
+                            spacing: 4px;
+                            horizontal-stretch: 1;
+                            Caption { text: stat.label.to-uppercase(); }
+                            Text { text: stat.value; font-size: Theme.fs-title; font-weight: 700; color: Theme.text; }
+                        }
+                    }
+                }
+
+                // process tree
+                Card {
+                    VerticalLayout {
+                        padding-top: 14px;
+                        padding-bottom: 8px;
+                        spacing: 8px;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 12px;
+                            Text { text: "Processes"; font-size: Theme.fs-title; font-weight: 700; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+                            Label { text: "Threads"; color: Theme.text-dim; vertical-alignment: center; }
+                            Toggle { checked <=> Backend.show-threads; toggled(c) => { Backend.view-changed(); } y: 0px; }
+                            Segmented {
+                                items: ["Hierarchy", "Flat"];
+                                current <=> Backend.tree-mode;
+                                selected => { Backend.view-changed(); }
+                            }
+                        }
+                        Rectangle {
+                            height: 28px;
+                            background: Theme.surface-hi;
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 12px;
+                                spacing: 10px;
+                                Caption { text: "PROCESS"; horizontal-stretch: 1; vertical-alignment: center; }
+                                Caption { text: "PID"; width: 64px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "CPU"; width: 130px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "MEMORY"; width: 130px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "THR"; width: 54px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "DISK R / W"; width: 120px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "TREND"; width: 70px; horizontal-alignment: right; vertical-alignment: center; }
+                            }
+                        }
+                        for row in Backend.tree: TreeLine { row: row; }
+                    }
+                }
+            }
+        }
+    }
+}

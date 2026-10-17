@@ -1,0 +1,203 @@
+import { Theme } from "../theme.slint";
+import { Backend } from "../backend.slint";
+import { Card, Label, Caption, Meter, Sparkline, Btn, Icon } from "../components/basic.slint";
+import { LineChart } from "../components/chart.slint";
+import { TopRow, SystemView } from "../types.slint";
+
+component Kpi inherits Card {
+    in property <string> title;
+    in property <string> value;
+    in property <string> detail;
+    in property <float> frac: -1;
+    in property <string> spark;
+    in property <color> tint: Theme.accent;
+    in property <image> icon;
+    min-height: 118px;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 8px;
+            Icon { source: root.icon; color: root.tint; size: 15px; y: 1px; }
+            Caption { text: root.title.to-uppercase(); }
+        }
+        Text {
+            text: root.value;
+            font-size: Theme.fs-kpi;
+            font-weight: 700;
+            color: Theme.text;
+        }
+        if root.frac >= 0: Meter { frac: root.frac; tint: root.tint; }
+        Label { text: root.detail; color: Theme.text-dim; font-size: Theme.fs-small; }
+    }
+    if root.spark != "": Sparkline {
+        x: parent.width - 120px - 12px;
+        y: 14px;
+        width: 120px;
+        height: 36px;
+        commands: root.spark;
+        tint: root.tint;
+    }
+}
+
+component TopTable inherits Card {
+    in property <string> title;
+    in property <[TopRow]> rows;
+    in property <color> tint: Theme.accent;
+    VerticalLayout {
+        padding: 16px;
+        spacing: 4px;
+        Caption { text: root.title.to-uppercase(); height: 22px; }
+        for row in root.rows: Rectangle {
+            height: 34px;
+            Rectangle {
+                x: 0;
+                width: parent.width * row.frac;
+                height: parent.height - 6px;
+                y: 3px;
+                border-radius: 6px;
+                background: root.tint.with-alpha(0.10);
+            }
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 4px;
+                spacing: 8px;
+                Label { text: row.name; horizontal-stretch: 1; vertical-alignment: center; font-weight: 600; }
+                if row.count != "": Label { text: row.count; color: Theme.text-faint; font-size: Theme.fs-small; vertical-alignment: center; }
+                Label { text: row.value; min-width: 70px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-dim; }
+                Btn {
+                    kind: 2;
+                    icon: row.watched ? @image-url("../icons/check.svg") : @image-url("../icons/plus.svg");
+                    active: row.watched;
+                    enabled: !row.watched;
+                    width: 30px;
+                    height: 26px;
+                    y: (parent.height - self.height) / 2;
+                    clicked => { Backend.watch-process(row.key, false); }
+                }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}
+
+export component DashboardPage inherits Rectangle {
+    ScrollView {
+        VerticalLayout {
+            padding: 24px;
+            spacing: 16px;
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: 16px;
+                Kpi {
+                    title: "CPU";
+                    icon: @image-url("../icons/cpu.svg");
+                    value: Backend.system.cpu;
+                    detail: Backend.system.cpu-model;
+                    frac: Backend.system.cpu-frac;
+                    spark: Backend.system.cpu-spark;
+                    tint: Theme.series[0];
+                }
+                Kpi {
+                    title: "Memory";
+                    icon: @image-url("../icons/memory.svg");
+                    value: Backend.system.mem;
+                    detail: Backend.system.mem-detail;
+                    frac: Backend.system.mem-frac;
+                    spark: Backend.system.mem-spark;
+                    tint: Theme.series[1];
+                }
+                Kpi {
+                    title: "Swap";
+                    icon: @image-url("../icons/layers.svg");
+                    value: Backend.system.swap;
+                    detail: Backend.system.swap-detail;
+                    frac: Backend.system.swap-frac;
+                    tint: Theme.series[3];
+                }
+                Kpi {
+                    title: "Load average";
+                    icon: @image-url("../icons/activity.svg");
+                    value: Backend.system.load;
+                    detail: Backend.system.load-detail;
+                    tint: Theme.series[2];
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 16px;
+                Card {
+                    min-height: 250px;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 8px;
+                        HorizontalLayout {
+                            Caption { text: "SYSTEM CPU"; horizontal-stretch: 1; }
+                            Caption { text: Backend.system.uptime; }
+                        }
+                        LineChart {
+                            data: Backend.cpu-chart;
+                            fill: Backend.chart-fill;
+                            grid: Backend.chart-grid;
+                            line-width: 1.2px * (Backend.line-width + 1);
+                            vertical-stretch: 1;
+                        }
+                    }
+                }
+                Card {
+                    min-height: 250px;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 8px;
+                        Caption { text: "SYSTEM MEMORY"; }
+                        LineChart {
+                            data: Backend.mem-chart;
+                            fill: Backend.chart-fill;
+                            grid: Backend.chart-grid;
+                            line-width: 1.2px * (Backend.line-width + 1);
+                            vertical-stretch: 1;
+                        }
+                    }
+                }
+            }
+
+            Card {
+                height: 24px + 16px * 2 + Math.ceil(Backend.cores.length / 8) * 38px;
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+                    Caption { text: "PER-CORE UTILISATION · \{Backend.system.processes}"; height: 16px; }
+                    Rectangle {
+                        property <int> cols: 8;
+                        property <length> cell-w: self.width / cols;
+                        for core[i] in Backend.cores: Rectangle {
+                            x: Math.mod(i, parent.cols) * parent.cell-w;
+                            y: Math.floor(i / parent.cols) * 38px;
+                            width: parent.cell-w;
+                            height: 38px;
+                            VerticalLayout {
+                                padding-right: 12px;
+                                spacing: 4px;
+                                HorizontalLayout {
+                                    Label { text: core.label; color: Theme.text-faint; font-size: Theme.fs-caption; horizontal-stretch: 1; }
+                                    Label { text: core.value; color: Theme.text-dim; font-size: Theme.fs-caption; }
+                                }
+                                Meter {
+                                    frac: core.frac;
+                                    tint: core.frac > 0.85 ? Theme.bad : core.frac > 0.6 ? Theme.warn : Theme.accent;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 16px;
+                TopTable { title: "Top by CPU"; rows: Backend.top-cpu; tint: Theme.series[0]; min-height: 340px; }
+                TopTable { title: "Top by memory"; rows: Backend.top-mem; tint: Theme.series[1]; min-height: 340px; }
+            }
+        }
+    }
+}

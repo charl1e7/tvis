@@ -1,0 +1,128 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Backend } from "../backend.slint";
+import { Card, Label, Caption, Meter, Btn, Icon, Field, Toggle } from "../components/basic.slint";
+import { ProcRow } from "../types.slint";
+
+component HeaderCell inherits Rectangle {
+    in property <string> text;
+    in property <int> col;
+    in property <bool> right: true;
+    callback clicked;
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { Backend.sort-procs(root.col); }
+    }
+    HorizontalLayout {
+        spacing: 4px;
+        alignment: root.right ? end : start;
+        Caption {
+            text: root.text;
+            color: Backend.proc-sort-col == root.col ? Theme.accent : Theme.text-faint;
+            vertical-alignment: center;
+        }
+        if Backend.proc-sort-col == root.col: Icon {
+            source: Backend.proc-sort-asc ? @image-url("../icons/arrow-up.svg") : @image-url("../icons/arrow-down.svg");
+            color: Theme.accent;
+            size: 11px;
+            y: (parent.height - self.height) / 2;
+        }
+    }
+}
+
+export component ProcessesPage inherits Rectangle {
+    VerticalLayout {
+        padding: 24px;
+        spacing: 14px;
+
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                Text { text: "Processes"; font-size: Theme.fs-h1; font-weight: 700; color: Theme.text; }
+                Label { text: Backend.procs-summary; color: Theme.text-dim; }
+            }
+            Field {
+                width: 260px;
+                placeholder: "Watch by name or PID…";
+                icon: @image-url("../icons/eye.svg");
+                accepted(t) => { Backend.watch-text(t); self.text = ""; }
+                y: 4px;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 14px;
+            Field {
+                horizontal-stretch: 1;
+                placeholder: "Filter by name, PID or command…";
+                icon: @image-url("../icons/search.svg");
+                text <=> Backend.proc-filter;
+                edited(t) => { Backend.proc-filter-changed(t); }
+            }
+            Label { text: "Group by name"; color: Theme.text-dim; vertical-alignment: center; }
+            Toggle {
+                checked <=> Backend.proc-group;
+                toggled(c) => { Backend.proc-filter-changed(Backend.proc-filter); }
+                y: 6px;
+            }
+        }
+
+        Card {
+            vertical-stretch: 1;
+            VerticalLayout {
+                Rectangle {
+                    height: 34px;
+                    background: Theme.surface-hi;
+                    border-radius: Theme.radius;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        spacing: 12px;
+                        HeaderCell { text: "NAME"; col: 0; right: false; horizontal-stretch: 1; }
+                        HeaderCell { text: Backend.proc-group ? "COUNT" : "PID"; col: 4; width: 70px; }
+                        HeaderCell { text: "CPU"; col: 1; width: 150px; }
+                        HeaderCell { text: "MEMORY"; col: 2; width: 150px; }
+                        HeaderCell { text: "THREADS"; col: 3; width: 70px; }
+                        Rectangle { width: 40px; }
+                    }
+                }
+                ListView {
+                    for row in Backend.procs: Rectangle {
+                        height: 38px;
+                        background: ta.has-hover ? Theme.surface-hi : transparent;
+                        ta := TouchArea { }
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                            spacing: 12px;
+                            Label { text: row.name; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+                            Label { text: row.pid; width: 70px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-faint; font-size: Theme.fs-small; }
+                            Rectangle {
+                                width: 150px;
+                                Meter { y: parent.height - 8px; height: 3px; frac: row.cpu-frac; tint: Theme.series[0]; }
+                                Label { text: row.cpu; horizontal-alignment: right; vertical-alignment: center; }
+                            }
+                            Rectangle {
+                                width: 150px;
+                                Meter { y: parent.height - 8px; height: 3px; frac: row.mem-frac; tint: Theme.series[1]; }
+                                Label { text: row.mem; horizontal-alignment: right; vertical-alignment: center; }
+                            }
+                            Label { text: row.threads; width: 70px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-dim; }
+                            Btn {
+                                kind: 2;
+                                width: 40px;
+                                height: 28px;
+                                y: (parent.height - self.height) / 2;
+                                icon: row.watched ? @image-url("../icons/check.svg") : @image-url("../icons/plus.svg");
+                                active: row.watched;
+                                enabled: !row.watched;
+                                clicked => { Backend.watch-process(row.key, row.is-pid); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

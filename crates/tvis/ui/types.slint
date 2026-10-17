@@ -1,0 +1,154 @@
+// Plain data shapes exchanged between the Rust presenter and the views.
+// Strings are pre-formatted in Rust so the UI thread only assigns values.
+
+export struct ChartLine {
+    name: string,
+    color: color,
+    stroke: string,   // SVG path commands in a 1000x1000 box
+    fill: string,
+    last: string,
+}
+
+export struct Tick {
+    frac: float,      // 0 = left/bottom, 1 = right/top
+    label: string,
+}
+
+export struct HoverItem {
+    name: string,
+    color: color,
+    value: string,
+}
+
+export struct ChartData {
+    lines: [ChartLine],
+    y-ticks: [Tick],
+    x-ticks: [Tick],
+    empty-text: string,
+}
+
+export struct MetricCard {
+    id: string,
+    name: string,
+    value: string,
+    detail: string,   // "avg 12% · p95 40% · max 90%"
+    trend: string,    // "+1.2 MiB/min"
+    trend-dir: int,   // -1 down, 0 flat, 1 up
+    spark: string,
+    color: color,
+    selected: bool,
+}
+
+export struct WatchRow {
+    id: string,
+    title: string,
+    subtitle: string,
+    running: bool,
+    cpu: string,
+    mem: string,
+    spark: string,
+    selected: bool,
+    alerting: bool,
+}
+
+export struct TreeRow {
+    pid: string,
+    name: string,
+    detail: string,    // command line
+    depth: int,
+    is-thread: bool,
+    cpu: string,
+    cpu-frac: float,
+    mem: string,
+    mem-frac: float,
+    threads: string,
+    io: string,
+    spark: string,
+}
+
+export struct StatItem {
+    label: string,
+    value: string,
+}
+
+export struct InsightRow {
+    severity: int,     // 0 info, 1 warning, 2 critical
+    title: string,
+    detail: string,
+}
+
+export struct MonitorHeader {
+    title: string,
+    subtitle: string,
+    running: bool,
+    id: string,
+    metric-name: string,
+    metric-unit-hint: string,
+}
+
+export struct SystemView {
+    cpu: string,
+    cpu-frac: float,
+    cpu-spark: string,
+    mem: string,
+    mem-detail: string,
+    mem-frac: float,
+    mem-spark: string,
+    swap: string,
+    swap-detail: string,
+    swap-frac: float,
+    load: string,
+    load-detail: string,
+    uptime: string,
+    processes: string,
+    cpu-model: string,
+}
+
+export struct CoreBar {
+    label: string,
+    frac: float,
+    value: string,
+}
+
+export struct TopRow {
+    name: string,
+    value: string,
+    frac: float,
+    count: string,
+    key: string,
+    watched: bool,
+}
+
+export struct ProcRow {
+    key: string,
+    name: string,
+    pid: string,
+    cpu: string,
+    cpu-frac: float,
+    mem: string,
+    mem-frac: float,
+    threads: string,
+    watched: bool,
+    is-pid: bool,
+}
+
+export struct AlertRuleRow {
+    id: int,
+    name: string,
+    summary: string,
+    scope: string,
+    enabled: bool,
+    firing: bool,
+}
+
+export struct AlertLogRow {
+    time: string,
+    text: string,
+    kind: int,   // 0 resolved, 1 fired, 2 info
+}
+
+export struct Choice {
+    id: string,
+    label: string,
+    hint: string,
+}

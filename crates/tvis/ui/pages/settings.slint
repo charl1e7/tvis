@@ -1,0 +1,183 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Backend } from "../backend.slint";
+import { Card, Label, Caption, Btn, Icon, Toggle, Select, Segmented, StepSlider } from "../components/basic.slint";
+
+component Row inherits Rectangle {
+    in property <string> title;
+    in property <string> hint;
+    height: 56px;
+    HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Label { text: root.title; font-weight: 600; }
+            if root.hint != "": Label { text: root.hint; color: Theme.text-faint; font-size: Theme.fs-small; }
+        }
+        @children
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border-soft; }
+}
+
+component Section inherits Card {
+    in property <string> title;
+    VerticalLayout {
+        padding: 16px;
+        padding-bottom: 4px;
+        spacing: 0px;
+        Caption { text: root.title.to-uppercase(); height: 26px; }
+        @children
+    }
+}
+
+component Swatch inherits Rectangle {
+    in property <color> tint;
+    in property <bool> selected;
+    callback clicked;
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    background: tint;
+    border-width: selected ? 3px : 0px;
+    border-color: Theme.text;
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SettingsPage inherits Rectangle {
+    property <[color]> accents: [#6d7cff, #22d3ee, #34d399, #fbbf24, #fb7185, #a78bfa];
+    ScrollView {
+        VerticalLayout {
+            padding: 24px;
+            spacing: 16px;
+            alignment: start;
+            Text { text: "Settings"; font-size: Theme.fs-h1; font-weight: 700; color: Theme.text; }
+
+            Section {
+                title: "Appearance";
+                Row {
+                    title: "Theme";
+                    hint: "Follow the operating system or force a mode";
+                    Segmented {
+                        items: ["System", "Dark", "Light"];
+                        current <=> Backend.theme-mode;
+                        selected => { Backend.settings-changed(); }
+                        y: 13px;
+                    }
+                }
+                Row {
+                    title: "Accent colour";
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: end;
+                        for c[i] in root.accents: Swatch {
+                            tint: c;
+                            selected: Backend.accent-index == i;
+                            y: 15px;
+                            clicked => { Backend.accent-index = i; Backend.settings-changed(); }
+                        }
+                    }
+                }
+            }
+
+            Section {
+                title: "Sampling";
+                Row {
+                    title: "Sampling interval";
+                    hint: "How often the engine reads the process table";
+                    Select {
+                        items: ["250 ms", "500 ms", "1 second", "2 seconds", "5 seconds", "10 seconds"];
+                        current <=> Backend.interval-index;
+                        selected => { Backend.settings-changed(); }
+                        width: 160px;
+                        y: 11px;
+                    }
+                }
+                Row {
+                    title: "History retention";
+                    hint: "How much history is kept in memory per target";
+                    Select {
+                        items: ["5 minutes", "15 minutes", "1 hour", "6 hours", "24 hours"];
+                        current <=> Backend.retention-index;
+                        selected => { Backend.settings-changed(); }
+                        width: 160px;
+                        y: 11px;
+                    }
+                }
+                Row {
+                    title: "CPU as share of whole machine";
+                    hint: "Off: 100% is one core (like top). On: 100% is every core";
+                    Toggle {
+                        checked <=> Backend.cpu-normalized;
+                        toggled(c) => { Backend.settings-changed(); }
+                        y: 17px;
+                    }
+                }
+                Row {
+                    title: "Size units";
+                    hint: "Binary: KiB, MiB (1024) · Decimal: kB, MB (1000)";
+                    Segmented {
+                        items: ["Binary", "Decimal"];
+                        current <=> Backend.byte-base;
+                        selected => { Backend.settings-changed(); }
+                        y: 13px;
+                    }
+                }
+            }
+
+            Section {
+                title: "Charts";
+                Row {
+                    title: "Smoothing";
+                    hint: "Exponential moving average applied to plotted lines";
+                    StepSlider {
+                        steps: 6;
+                        value <=> Backend.smoothing;
+                        changed(v) => { Backend.settings-changed(); }
+                        width: 200px;
+                        y: 16px;
+                    }
+                }
+                Row {
+                    title: "Line weight";
+                    Segmented {
+                        items: ["Thin", "Normal", "Bold"];
+                        current <=> Backend.line-width;
+                        selected => { Backend.settings-changed(); }
+                        y: 13px;
+                    }
+                }
+                Row {
+                    title: "Area fill";
+                    Toggle { checked <=> Backend.chart-fill; toggled(c) => { Backend.settings-changed(); } y: 17px; }
+                }
+                Row {
+                    title: "Grid lines";
+                    Toggle { checked <=> Backend.chart-grid; toggled(c) => { Backend.settings-changed(); } y: 17px; }
+                }
+            }
+
+            Section {
+                title: "Data & about";
+                Row {
+                    title: "Configuration folder";
+                    hint: Backend.data-dir;
+                    Btn { text: "Open"; icon: @image-url("../icons/folder.svg"); clicked => { Backend.open-data-dir(); } y: 12px; }
+                }
+                Row {
+                    title: "Reset all settings";
+                    hint: "Restores defaults and clears the saved watchlist and alert rules";
+                    Btn { kind: 3; text: "Reset"; clicked => { Backend.reset-settings(); } y: 12px; }
+                }
+                Row {
+                    title: "TVIS \{Backend.version}";
+                    hint: Backend.engine-info;
+                }
+            }
+        }
+    }
+}
