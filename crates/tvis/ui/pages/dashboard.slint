@@ -1,9 +1,9 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Backend } from "../backend.slint";
-import { Card, Label, Caption, Meter, Sparkline, Btn, Icon } from "../components/basic.slint";
+import { Card, Label, Caption, Meter, Sparkline, Btn, Icon, Badge } from "../components/basic.slint";
 import { LineChart } from "../components/chart.slint";
-import { TopRow, SystemView } from "../types.slint";
+import { TopRow, SystemView, GpuCard } from "../types.slint";
 
 component Kpi inherits Card {
     in property <string> title;
@@ -79,6 +79,50 @@ component TopTable inherits Card {
             }
         }
         Rectangle { vertical-stretch: 1; }
+    }
+}
+
+component GpuRow inherits Rectangle {
+    in property <GpuCard> gpu;
+    in property <int> index;
+    height: 124px;
+    HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            spacing: 8px;
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle { width: 10px; height: 10px; y: 4px; border-radius: 3px; background: Theme.series-color(root.index); }
+                Label { text: root.gpu.name; font-weight: 700; horizontal-stretch: 1; }
+                Badge { text: root.gpu.vendor.to-uppercase(); tint: Theme.series-color(root.index); }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Label { text: "Util"; color: Theme.text-faint; font-size: Theme.fs-small; width: 40px; vertical-alignment: center; }
+                Meter { frac: Math.max(0.0, root.gpu.util-frac); tint: root.gpu.util-frac > 0.85 ? Theme.bad : Theme.series-color(root.index); y: 4px; }
+                Label { text: root.gpu.util; font-weight: 700; width: 56px; horizontal-alignment: right; }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Label { text: "VRAM"; color: Theme.text-faint; font-size: Theme.fs-small; width: 40px; vertical-alignment: center; }
+                Meter { frac: Math.max(0.0, root.gpu.mem-frac); tint: root.gpu.mem-frac > 0.9 ? Theme.bad : Theme.series[1]; y: 4px; }
+                Label { text: root.gpu.mem; color: Theme.text-dim; font-size: Theme.fs-small; width: 130px; horizontal-alignment: right; }
+            }
+            HorizontalLayout {
+                spacing: 18px;
+                Label { text: "Temp " + root.gpu.temp; color: Theme.text-dim; font-size: Theme.fs-small; }
+                Label { text: "Power " + root.gpu.power; color: Theme.text-dim; font-size: Theme.fs-small; }
+                Label { text: "Clock " + root.gpu.clock; color: Theme.text-dim; font-size: Theme.fs-small; }
+            }
+        }
+        Sparkline {
+            width: 110px;
+            height: 44px;
+            y: 4px;
+            commands: root.gpu.spark;
+            tint: Theme.series-color(root.index);
+        }
     }
 }
 
@@ -195,6 +239,40 @@ export component DashboardPage inherits Rectangle {
                         }
                     }
                 }
+            }
+
+            if Backend.has-gpu: HorizontalLayout {
+                spacing: 16px;
+                Card {
+                    horizontal-stretch: 1;
+                    height: 54px + Backend.gpus.length * 136px;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        alignment: start;
+                        Caption { text: "GRAPHICS · \{Backend.gpus.length}"; height: 16px; }
+                        for gpu[i] in Backend.gpus: GpuRow { gpu: gpu; index: i; }
+                    }
+                }
+                Card {
+                    horizontal-stretch: 1;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 8px;
+                        Caption { text: "GPU UTILISATION"; }
+                        LineChart {
+                            data: Backend.gpu-chart;
+                            fill: Backend.chart-fill;
+                            grid: Backend.chart-grid;
+                            line-width: 1.2px * (Backend.line-width + 1);
+                            vertical-stretch: 1;
+                        }
+                    }
+                }
+            }
+
+            if Backend.has-gpu: HorizontalLayout {
+                TopTable { title: "Top by GPU (memory · utilisation)"; rows: Backend.top-gpu; tint: Theme.series[2]; min-height: 200px; }
             }
 
             HorizontalLayout {

@@ -63,6 +63,7 @@ export struct TreeRow {
     mem-frac: float,
     threads: string,
     io: string,
+    gpu: string,
     spark: string,
 }
 
@@ -128,6 +129,7 @@ export struct ProcRow {
     mem: string,
     mem-frac: float,
     threads: string,
+    gpu: string,
     watched: bool,
     is-pid: bool,
 }
@@ -151,4 +153,17 @@ export struct Choice {
     id: string,
     label: string,
     hint: string,
+}
+
+export struct GpuCard {
+    name: string,
+    vendor: string,
+    util: string,
+    util-frac: float,     // -1 when unknown
+    mem: string,
+    mem-frac: float,      // -1 when unknown
+    temp: string,
+    power: string,
+    clock: string,
+    spark: string,
 }

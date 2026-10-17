@@ -27,6 +27,10 @@ pub struct Cli {
     #[arg(short, long, value_name = "MS", global = true)]
     pub interval: Option<u64>,
 
+    /// Do not probe GPUs (skips NVML, DRM and WMI counters)
+    #[arg(long, global = true)]
+    pub no_gpu: bool,
+
     /// Use a custom configuration directory
     #[arg(long, value_name = "DIR", env = "TVIS_CONFIG_DIR", global = true)]
     pub config_dir: Option<PathBuf>,

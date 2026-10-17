@@ -18,7 +18,8 @@ See exactly how much CPU, memory, threads, disk I/O and file handles your applic
 
 - **Per-application profiles** — watch a process by name or PID; its whole process
   tree is tracked and aggregated, and children that appear later are picked up automatically.
-- **Seven metrics** — CPU, resident memory, virtual memory, threads, disk read/write rate, open files.
+- **Nine metrics** — CPU, resident memory, virtual memory, threads, disk read/write rate, open files, **GPU utilisation and GPU memory per process**.
+- **GPU monitoring** — utilisation, VRAM, temperature, power and clock for every GPU, and what each process uses on it. NVIDIA (NVML), AMD/Intel on Linux (sysfs + DRM fdinfo), any vendor on Windows (WDDM counters), device stats on macOS. No vendor SDK is needed at build or run time.
 - **Real statistics** — current, min, average, median, P95, P99, max and standard
   deviation over 30 s – 1 h windows, plus a trend per minute for every metric.
 - **Automatic insights** — steady growth of memory, threads or handles (leak
@@ -71,6 +72,7 @@ sudo apt install libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libx11
 tvis                       # open the app
 tvis -w java -w postgres   # start watching processes
 tvis --demo                # explore with a synthetic machine
+tvis --no-gpu              # skip GPU probing
 tvis record nginx -d 60 -o nginx.json   # headless recording (csv or json)
 ```
 
@@ -79,8 +81,8 @@ platform configuration directory (override with `--config-dir` or `TVIS_CONFIG_D
 
 ## Architecture
 
-TVIS is a workspace of two crates: `tvis-core` (engine, no UI) and `tvis`
-(Slint application). New metrics, data sources, insights and pages plug in
+TVIS is a workspace of three crates: `tvis-core` (engine, no UI), `tvis-gpu`
+(GPU backends) and `tvis` (Slint application). New metrics, data sources, insights and pages plug in
 without touching the core. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Development
@@ -90,6 +92,19 @@ cargo test --workspace
 cargo clippy --workspace --all-targets
 cargo run -- --demo
 ```
+
+## GPU support details
+
+| Platform | Device data | Per-process data | Notes |
+|----------|-------------|------------------|-------|
+| NVIDIA, Linux | NVML | memory + utilisation | needs the proprietary driver (`libnvidia-ml`) |
+| NVIDIA, Windows | NVML | via WDDM counters | |
+| AMD, Linux | sysfs (`gpu_busy_percent`, VRAM) + hwmon (temperature, power, fan) | DRM `fdinfo` | processes of other users need root to be inspected |
+| Intel, Linux | hwmon / frequency | DRM `fdinfo` | no device-wide utilisation counter without root |
+| Any GPU, Windows | WDDM counters | engine time + dedicated VRAM | Windows 10 1709+ |
+| macOS | IOKit statistics | not available | the OS exposes none to unprivileged programs |
+
+Without a supported GPU the GPU sections simply do not appear.
 
 ## Credits
 

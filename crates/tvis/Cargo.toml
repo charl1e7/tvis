@@ -25,7 +25,8 @@ slint = { version = "1.18.1", default-features = false, features = ["std", "back
 toml = "1.1.8"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tvis-core = { version = "2.0.0", path = "../tvis-core" }
+tvis-core = { version = "2.1.0", path = "../tvis-core" }
+tvis-gpu = { version = "2.1.0", path = "../tvis-gpu" }
 
 [lints]
 workspace = true

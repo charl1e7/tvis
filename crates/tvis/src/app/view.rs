@@ -61,6 +61,7 @@ pub enum ProcSort {
     Memory,
     Threads,
     Pid,
+    Gpu,
 }
 
 impl ProcSort {
@@ -70,6 +71,7 @@ impl ProcSort {
             2 => Self::Memory,
             3 => Self::Threads,
             4 => Self::Pid,
+            5 => Self::Gpu,
             _ => Self::Cpu,
         }
     }
@@ -81,6 +83,7 @@ impl ProcSort {
             Self::Memory => 2,
             Self::Threads => 3,
             Self::Pid => 4,
+            Self::Gpu => 5,
         }
     }
 }
@@ -197,6 +200,7 @@ pub struct TreeRowV {
     pub mem_frac: f32,
     pub threads: String,
     pub io: String,
+    pub gpu: String,
     pub spark: String,
 }
 
@@ -251,7 +255,24 @@ pub struct TopRowV {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct GpuCardV {
+    pub name: String,
+    pub vendor: String,
+    pub util: String,
+    pub util_frac: f32,
+    pub mem: String,
+    pub mem_frac: f32,
+    pub temp: String,
+    pub power: String,
+    pub clock: String,
+    pub spark: String,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct DashboardV {
+    pub gpus: Vec<GpuCardV>,
+    pub gpu_chart: Option<ChartV>,
+    pub top_gpu: Vec<TopRowV>,
     pub system: SystemV,
     pub cores: Vec<(String, f32, String)>,
     pub cpu_chart: Option<ChartV>,
@@ -270,6 +291,7 @@ pub struct ProcRowV {
     pub mem: String,
     pub mem_frac: f32,
     pub threads: String,
+    pub gpu: String,
     pub watched: bool,
     pub is_pid: bool,
 }
@@ -287,6 +309,8 @@ pub struct ViewState {
     pub host: String,
     pub live: bool,
     pub paused: bool,
+    /// At least one GPU is being sampled.
+    pub has_gpu: bool,
     pub watchlist: Vec<WatchRowV>,
     /// `(id, title)` of every watched target, for pickers.
     pub targets: Vec<(String, String)>,

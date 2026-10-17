@@ -194,11 +194,42 @@ impl SystemHistory {
     }
 }
 
+/// History of one GPU.
+#[derive(Clone, Debug)]
+pub struct GpuHistory {
+    pub utilization: TimeSeries,
+    pub memory: TimeSeries,
+    pub temperature: TimeSeries,
+    pub power: TimeSeries,
+}
+
+impl GpuHistory {
+    fn new(limits: Limits) -> Self {
+        Self {
+            utilization: limits.series(),
+            memory: limits.series(),
+            temperature: limits.series(),
+            power: limits.series(),
+        }
+    }
+
+    fn iter_mut(&mut self) -> impl Iterator<Item = &mut TimeSeries> {
+        [
+            &mut self.utilization,
+            &mut self.memory,
+            &mut self.temperature,
+            &mut self.power,
+        ]
+        .into_iter()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Store {
     limits: Limits,
     targets: Vec<TargetData>,
     pub system: SystemHistory,
+    gpus: Vec<(String, GpuHistory)>,
 }
 
 impl Store {
@@ -207,7 +238,17 @@ impl Store {
             limits,
             targets: Vec::new(),
             system: SystemHistory::new(limits),
+            gpus: Vec::new(),
         }
+    }
+
+    /// Recorded history of every GPU seen so far, in discovery order.
+    pub fn gpu_histories(&self) -> &[(String, GpuHistory)] {
+        &self.gpus
+    }
+
+    pub fn gpu_history(&self, id: &str) -> Option<&GpuHistory> {
+        self.gpus.iter().find(|(i, _)| i == id).map(|(_, h)| h)
     }
 
     pub fn limits(&self) -> Limits {
@@ -219,6 +260,9 @@ impl Store {
         self.targets.iter_mut().for_each(|t| t.apply_limits(limits));
         let (age, pts) = (limits.retention_secs, limits.max_points());
         self.system.iter_mut().for_each(|s| s.set_limits(age, pts));
+        for (_, h) in &mut self.gpus {
+            h.iter_mut().for_each(|s| s.set_limits(age, pts));
+        }
     }
 
     /// Starts watching a target. Returns `false` if it is already watched.
@@ -263,6 +307,25 @@ impl Store {
         self.system.swap.push(frame.t, s.swap_used as f64);
         self.system.load.push(frame.t, s.load_average[0]);
         let limits = self.limits;
+        for g in &frame.gpus {
+            let pos = match self.gpus.iter().position(|(id, _)| *id == g.id) {
+                Some(p) => p,
+                None => {
+                    self.gpus.push((g.id.clone(), GpuHistory::new(limits)));
+                    self.gpus.len() - 1
+                }
+            };
+            let h = &mut self.gpus[pos].1;
+            let push = |series: &mut TimeSeries, v: Option<f64>| {
+                if let Some(v) = v {
+                    series.push(frame.t, v);
+                }
+            };
+            push(&mut h.utilization, g.utilization);
+            push(&mut h.memory, g.mem_used.map(|m| m as f64));
+            push(&mut h.temperature, g.temperature);
+            push(&mut h.power, g.power);
+        }
         for t in &mut self.targets {
             t.ingest(frame, registry, limits);
         }
@@ -365,6 +428,39 @@ mod tests {
         store.ingest(&frame(2.0, &[(1, None, "app", 1.0, 1.0, false)]), &reg);
         assert!(store.targets()[0].process_series(2, builtin::CPU).is_none());
         assert!(store.targets()[0].process_series(1, builtin::CPU).is_some());
+    }
+
+    #[test]
+    fn records_gpu_history_and_gpu_process_metrics() {
+        use crate::gpu::{GpuSample, GpuVendor, descriptors};
+        let mut reg = registry();
+        reg.extend(descriptors());
+        let mut store = Store::new(limits());
+        store.watch(Target::Name("app".into()));
+        for i in 0..3 {
+            let mut p = ProcessSample::new(1, None, "app");
+            p.set(builtin::GPU_UTIL, 10.0 * f64::from(i));
+            p.set(builtin::GPU_MEM, 1e9);
+            let mut f = Frame::new(SystemSample::default(), vec![p]);
+            f.t = f64::from(i);
+            f.gpus.push(GpuSample {
+                id: "nvml:0".into(),
+                vendor: GpuVendor::Nvidia,
+                utilization: Some(50.0),
+                mem_used: Some(2_000_000_000),
+                temperature: None,
+                ..Default::default()
+            });
+            store.ingest(&f, &reg);
+        }
+        let h = store.gpu_history("nvml:0").expect("gpu history");
+        assert_eq!(h.utilization.len(), 3);
+        assert_eq!(h.memory.last().unwrap().v, 2e9);
+        assert!(h.temperature.is_empty(), "absent readings record nothing");
+        assert_eq!(store.gpu_histories().len(), 1);
+        let t = &store.targets()[0];
+        assert_eq!(t.current(builtin::GPU_UTIL), Some(20.0));
+        assert_eq!(t.current(builtin::GPU_MEM), Some(1e9));
     }
 
     #[test]

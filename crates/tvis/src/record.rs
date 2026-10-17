@@ -28,7 +28,7 @@ pub fn run(cli: &Cli, args: &RecordArgs) -> Result<()> {
         bail!("target must not be empty");
     };
     let interval = Duration::from_millis(cli.interval.unwrap_or(1000));
-    let (source, probes) = make_source(cli.demo);
+    let (source, probes) = make_source(cli.demo, !cli.no_gpu);
     let engine = Engine::new(
         source,
         probes,

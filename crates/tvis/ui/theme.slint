@@ -28,7 +28,7 @@ export global Theme {
     out property <[color]> series: [
         #6d7cff, #22d3ee, #34d399, #fbbf24, #fb7185, #a78bfa, #38bdf8, #fb923c
     ];
-    pure function series-color(i: int) -> color {
+    public pure function series-color(i: int) -> color {
         series[Math.mod(i, 8)]
     }
 

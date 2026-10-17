@@ -22,9 +22,9 @@ use crate::settings::{
     INTERVALS_MS, RETENTIONS_SECS, Settings, SettingsStore, ThemeMode, WINDOWS_SECS,
 };
 use crate::{
-    AlertLogRow, AlertRuleRow, AppWindow, Backend, ChartData, ChartLine, CoreBar, HoverItem,
-    InsightRow, MetricCard, MonitorHeader, ProcRow, StatItem, SystemView, Theme, TopRow, TreeRow,
-    WatchRow,
+    AlertLogRow, AlertRuleRow, AppWindow, Backend, ChartData, ChartLine, CoreBar, GpuCard,
+    HoverItem, InsightRow, MetricCard, MonitorHeader, ProcRow, StatItem, SystemView, Theme, TopRow,
+    TreeRow, WatchRow,
 };
 
 thread_local! {
@@ -135,6 +135,8 @@ pub struct Ui {
     core_bars: Rc<VecModel<CoreBar>>,
     top_cpu: Rc<VecModel<TopRow>>,
     top_mem: Rc<VecModel<TopRow>>,
+    top_gpu: Rc<VecModel<TopRow>>,
+    gpus: Rc<VecModel<GpuCard>>,
     procs: Rc<VecModel<ProcRow>>,
     rules: Rc<VecModel<AlertRuleRow>>,
     alert_log: Rc<VecModel<AlertLogRow>>,
@@ -145,6 +147,7 @@ pub struct Ui {
     main_chart: ChartModels,
     cpu_chart: ChartModels,
     mem_chart: ChartModels,
+    gpu_chart: ChartModels,
 
     // state mirrored from the last update
     chart_cache: RefCell<Option<ChartV>>,
@@ -181,6 +184,8 @@ impl Ui {
             core_bars: Rc::default(),
             top_cpu: Rc::default(),
             top_mem: Rc::default(),
+            top_gpu: Rc::default(),
+            gpus: Rc::default(),
             procs: Rc::default(),
             rules: Rc::default(),
             alert_log: Rc::default(),
@@ -191,6 +196,7 @@ impl Ui {
             main_chart: ChartModels::new(),
             cpu_chart: ChartModels::new(),
             mem_chart: ChartModels::new(),
+            gpu_chart: ChartModels::new(),
             chart_cache: RefCell::default(),
             targets: RefCell::default(),
             firing: RefCell::default(),
@@ -217,6 +223,8 @@ impl Ui {
         b.set_cores(ModelRc::from(self.core_bars.clone()));
         b.set_top_cpu(ModelRc::from(self.top_cpu.clone()));
         b.set_top_mem(ModelRc::from(self.top_mem.clone()));
+        b.set_top_gpu(ModelRc::from(self.top_gpu.clone()));
+        b.set_gpus(ModelRc::from(self.gpus.clone()));
         b.set_procs(ModelRc::from(self.procs.clone()));
         b.set_rules(ModelRc::from(self.rules.clone()));
         b.set_alert_log(ModelRc::from(self.alert_log.clone()));
@@ -227,6 +235,7 @@ impl Ui {
         b.set_chart(self.main_chart.data("Waiting for samples…"));
         b.set_cpu_chart(self.cpu_chart.data("Waiting for samples…"));
         b.set_mem_chart(self.mem_chart.data("Waiting for samples…"));
+        b.set_gpu_chart(self.gpu_chart.data("Waiting for samples…"));
         b.set_version(env!("CARGO_PKG_VERSION").into());
         b.set_data_dir(self.store.dir().display().to_string().into());
         b.set_engine_info(engine_info.into());
@@ -243,7 +252,7 @@ impl Ui {
                 .map(|d| crate::Choice {
                     id: d.id.as_str().into(),
                     label: d.name.into(),
-                    hint: threshold_unit(d.unit).0.into(),
+                    hint: threshold_unit(d.id, d.unit).0.into(),
                 })
                 .collect(),
         );
@@ -382,6 +391,7 @@ impl Ui {
         b.set_live(s.live);
         b.set_paused(s.paused);
         b.set_alerts_firing(s.firing_rules.len() as i32);
+        b.set_has_gpu(s.has_gpu);
 
         sync(
             &self.watchlist,
@@ -427,6 +437,7 @@ impl Ui {
                         mem: r.mem.as_str().into(),
                         mem_frac: r.mem_frac,
                         threads: r.threads.as_str().into(),
+                        gpu: r.gpu.as_str().into(),
                         watched: r.watched,
                         is_pid: r.is_pid,
                     })
@@ -485,6 +496,25 @@ impl Ui {
         );
         self.cpu_chart.apply(d.cpu_chart.as_ref());
         self.mem_chart.apply(d.mem_chart.as_ref());
+        self.gpu_chart.apply(d.gpu_chart.as_ref());
+        sync(
+            &self.gpus,
+            d.gpus
+                .iter()
+                .map(|g| GpuCard {
+                    name: g.name.as_str().into(),
+                    vendor: g.vendor.as_str().into(),
+                    util: g.util.as_str().into(),
+                    util_frac: g.util_frac,
+                    mem: g.mem.as_str().into(),
+                    mem_frac: g.mem_frac,
+                    temp: g.temp.as_str().into(),
+                    power: g.power.as_str().into(),
+                    clock: g.clock.as_str().into(),
+                    spark: g.spark.as_str().into(),
+                })
+                .collect(),
+        );
         let top = |rows: &[TopRowV]| {
             rows.iter()
                 .map(|r| TopRow {
@@ -499,6 +529,7 @@ impl Ui {
         };
         sync(&self.top_cpu, top(&d.top_cpu));
         sync(&self.top_mem, top(&d.top_mem));
+        sync(&self.top_gpu, top(&d.top_gpu));
     }
 
     fn apply_monitor(&self, b: &Backend<'_>, m: MonitorV) {
@@ -566,6 +597,7 @@ impl Ui {
                     mem_frac: r.mem_frac,
                     threads: r.threads.as_str().into(),
                     io: r.io.as_str().into(),
+                    gpu: r.gpu.as_str().into(),
                     spark: r.spark.as_str().into(),
                 })
                 .collect(),
@@ -887,7 +919,7 @@ impl Ui {
             self.toast(2, "Enter a threshold first");
             return;
         }
-        let (_, multiplier) = threshold_unit(desc.unit);
+        let (_, multiplier) = threshold_unit(desc.id, desc.unit);
         let target = (target_idx > 0)
             .then(|| {
                 self.targets
@@ -1020,9 +1052,10 @@ impl Ui {
 }
 
 /// `(label, multiplier to base unit)` for thresholds typed into the alert form.
-fn threshold_unit(unit: Unit) -> (&'static str, f64) {
+fn threshold_unit(id: tvis_core::MetricId, unit: Unit) -> (&'static str, f64) {
     match unit {
-        Unit::Percent => ("% of a core", 1.0),
+        Unit::Percent if id == tvis_core::metric::builtin::CPU => ("% of a core", 1.0),
+        Unit::Percent => ("%", 1.0),
         Unit::Bytes => ("MiB", 1024.0 * 1024.0),
         Unit::BytesPerSec => ("MiB/s", 1024.0 * 1024.0),
         Unit::Count => ("", 1.0),

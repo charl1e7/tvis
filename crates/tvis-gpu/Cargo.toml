@@ -1,0 +1,34 @@
+[package]
+name = "tvis-gpu"
+description = "Cross-platform GPU metric probes for TVIS (NVIDIA, AMD, Intel, Apple)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tvis-core = { path = "../tvis-core", version = "2.1.0" }
+tracing = "0.1"
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+nvml-wrapper = "0.13"
+
+[target.'cfg(windows)'.dependencies]
+wmi = "0.18"
+serde = { version = "1", features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+plist = "1"
+
+[dev-dependencies]
+tempfile = "3"
+plist = "1"
+
+[lints]
+workspace = true

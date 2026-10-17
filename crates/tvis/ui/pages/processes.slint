@@ -83,6 +83,7 @@ export component ProcessesPage inherits Rectangle {
                         HeaderCell { text: Backend.proc-group ? "COUNT" : "PID"; column: 4; width: 70px; }
                         HeaderCell { text: "CPU"; column: 1; width: 150px; }
                         HeaderCell { text: "MEMORY"; column: 2; width: 150px; }
+                        if Backend.has-gpu: HeaderCell { text: "GPU"; column: 5; width: 140px; }
                         HeaderCell { text: "THREADS"; column: 3; width: 70px; }
                         Rectangle { width: 40px; }
                     }
@@ -108,6 +109,7 @@ export component ProcessesPage inherits Rectangle {
                                 Meter { y: parent.height - 8px; height: 3px; frac: row.mem-frac; tint: Theme.series[1]; }
                                 Label { text: row.mem; width: 100%; horizontal-alignment: right; vertical-alignment: center; }
                             }
+                            if Backend.has-gpu: Label { text: row.gpu; width: 140px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-dim; font-size: Theme.fs-small; }
                             Label { text: row.threads; width: 70px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-dim; }
                             Btn {
                                 kind: 2;

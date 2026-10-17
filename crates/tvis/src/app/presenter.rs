@@ -99,6 +99,7 @@ pub fn build(view: &EngineView<'_>, req: &ViewRequest) -> ViewState {
             .to_owned(),
         live: view.frame.is_some(),
         paused: view.config.paused,
+        has_gpu: view.frame.is_some_and(|f| !f.gpus.is_empty()),
         firing_rules: firing.iter().map(|(rule, _)| *rule).collect(),
         targets: view
             .store
@@ -316,7 +317,12 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
     let top_cpu = top(|g| g.cpu, &|v| format_percent(v * f_cpu));
     let top_mem = top(|g| g.mem, &|v| format_bytes(v * f_mem, base));
 
+    let (gpus, gpu_chart, top_gpu) = gpu_section(cx, frame, &groups, &watched);
+
     DashboardV {
+        gpus,
+        gpu_chart,
+        top_gpu,
         system,
         cores,
         cpu_chart: Some(cpu_chart),
@@ -326,11 +332,138 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
     }
 }
 
+/// `"12% · 340 MiB"`, with whichever halves are known.
+fn gpu_text(cx: &Ctx<'_, '_>, util: Option<f64>, mem: Option<f64>) -> String {
+    match (util, mem) {
+        (Some(u), Some(m)) => format!("{} · {}", format_percent(u), format_bytes(m, cx.base())),
+        (Some(u), None) => format_percent(u),
+        (None, Some(m)) => format_bytes(m, cx.base()),
+        (None, None) => "—".into(),
+    }
+}
+
+fn gpu_section(
+    cx: &Ctx<'_, '_>,
+    frame: &Frame,
+    groups: &HashMap<String, Group>,
+    watched: &dyn Fn(&str) -> bool,
+) -> (Vec<GpuCardV>, Option<ChartV>, Vec<TopRowV>) {
+    if frame.gpus.is_empty() {
+        return (Vec::new(), None, Vec::new());
+    }
+    let store = cx.view.store;
+    let now = cx.view.now;
+    let base = cx.base();
+    let spark = |series: Option<&tvis_core::series::TimeSeries>| {
+        series
+            .map(|s| {
+                chart::sparkline(
+                    &s.since(now - 120.0).collect::<Vec<Point>>(),
+                    120.0,
+                    now,
+                    50,
+                )
+            })
+            .unwrap_or_default()
+    };
+
+    let cards = frame
+        .gpus
+        .iter()
+        .map(|g| {
+            let hist = store.gpu_history(&g.id);
+            let frac = |used: Option<u64>, total: Option<u64>| match (used, total) {
+                (Some(u), Some(t)) if t > 0 => (u as f64 / t as f64) as f32,
+                _ => -1.0,
+            };
+            GpuCardV {
+                name: g.name.clone(),
+                vendor: g.vendor.name().to_owned(),
+                util: g.utilization.map_or_else(|| "—".into(), format_percent),
+                util_frac: g.utilization.map_or(-1.0, |u| (u / 100.0) as f32),
+                mem: match (g.mem_used, g.mem_total) {
+                    (Some(u), Some(t)) => format!(
+                        "{} / {}",
+                        format_bytes(u as f64, base),
+                        format_bytes(t as f64, base)
+                    ),
+                    (Some(u), None) => format_bytes(u as f64, base),
+                    _ => "—".into(),
+                },
+                mem_frac: frac(g.mem_used, g.mem_total),
+                temp: g
+                    .temperature
+                    .map_or_else(|| "—".into(), |t| format!("{t:.0} °C")),
+                power: g.power.map_or_else(|| "—".into(), |w| format!("{w:.0} W")),
+                clock: g
+                    .clock_mhz
+                    .map_or_else(|| "—".into(), |c| format!("{c:.0} MHz")),
+                spark: spark(hist.map(|h| &h.utilization)),
+            }
+        })
+        .collect();
+
+    let inputs = frame
+        .gpus
+        .iter()
+        .enumerate()
+        .filter_map(|(i, g)| {
+            let h = store.gpu_history(&g.id)?;
+            Some(Input {
+                name: g.name.clone(),
+                color: SERIES_COLORS[i % SERIES_COLORS.len()],
+                points: scaled_points(&h.utilization, cx.since(), 1.0),
+            })
+        })
+        .collect();
+    let gpu_chart = chart::build(inputs, Unit::Percent, base, cx.plot(), YScale::Fixed(100.0));
+
+    // Busiest GPU users, by memory (utilisation breaks ties and covers
+    // backends that cannot report memory).
+    let mut users: Vec<(&String, &Group)> = groups
+        .iter()
+        .filter(|(_, g)| g.gpu_mem > 0.0 || g.gpu_util > 0.0)
+        .collect();
+    users.sort_by(|a, b| {
+        b.1.gpu_mem
+            .total_cmp(&a.1.gpu_mem)
+            .then(b.1.gpu_util.total_cmp(&a.1.gpu_util))
+            .then_with(|| a.0.cmp(b.0))
+    });
+    let max = users
+        .first()
+        .map_or(1.0, |(_, g)| g.gpu_mem.max(g.gpu_util))
+        .max(f64::EPSILON);
+    let top = users
+        .into_iter()
+        .take(TOP_N)
+        .map(|(name, g)| TopRowV {
+            name: name.clone(),
+            value: gpu_text(
+                cx,
+                (g.gpu_util > 0.0).then_some(g.gpu_util),
+                (g.gpu_mem > 0.0).then_some(g.gpu_mem),
+            ),
+            frac: (g.gpu_mem.max(g.gpu_util) / max) as f32,
+            count: if g.count > 1 {
+                format!("×{}", g.count)
+            } else {
+                String::new()
+            },
+            key: name.clone(),
+            watched: watched(name),
+        })
+        .collect();
+    (cards, Some(gpu_chart), top)
+}
+
 #[derive(Default)]
 struct Group {
     cpu: f64,
     mem: f64,
     threads: f64,
+    gpu_util: f64,
+    gpu_mem: f64,
     count: usize,
     pid: u32,
 }
@@ -342,6 +475,8 @@ fn group_by_name(frame: &Frame) -> HashMap<String, Group> {
         g.cpu += p.value(builtin::CPU);
         g.mem += p.value(builtin::MEM_RSS);
         g.threads += p.value(builtin::THREADS);
+        g.gpu_util += p.value(builtin::GPU_UTIL);
+        g.gpu_mem += p.value(builtin::GPU_MEM);
         g.count += 1;
         g.pid = p.pid;
     }
@@ -371,6 +506,8 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
         cpu: f64,
         mem: f64,
         threads: f64,
+        gpu_util: f64,
+        gpu_mem: f64,
         is_pid: bool,
     }
 
@@ -386,6 +523,8 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
                 cpu: g.cpu,
                 mem: g.mem,
                 threads: g.threads,
+                gpu_util: g.gpu_util,
+                gpu_mem: g.gpu_mem,
                 is_pid: false,
             })
             .collect()
@@ -408,6 +547,8 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
                 cpu: p.value(builtin::CPU),
                 mem: p.value(builtin::MEM_RSS),
                 threads: p.value(builtin::THREADS),
+                gpu_util: p.value(builtin::GPU_UTIL),
+                gpu_mem: p.value(builtin::GPU_MEM),
                 is_pid: true,
             })
             .collect()
@@ -420,6 +561,10 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
             ProcSort::Cpu => a.cpu.total_cmp(&b.cpu),
             ProcSort::Memory => a.mem.total_cmp(&b.mem),
             ProcSort::Threads => a.threads.total_cmp(&b.threads),
+            ProcSort::Gpu => a
+                .gpu_mem
+                .total_cmp(&b.gpu_mem)
+                .then(a.gpu_util.total_cmp(&b.gpu_util)),
             ProcSort::Pid if req.proc_group => a.count.cmp(&b.count),
             ProcSort::Pid => a.pid.cmp(&b.pid),
         };
@@ -452,6 +597,11 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
             cpu_frac: (r.cpu / max_cpu) as f32,
             mem: format_bytes(r.mem, cx.base()),
             mem_frac: (r.mem / max_mem) as f32,
+            gpu: gpu_text(
+                cx,
+                (r.gpu_util > 0.0).then_some(r.gpu_util),
+                (r.gpu_mem > 0.0).then_some(r.gpu_mem),
+            ),
             threads: if r.threads > 0.0 {
                 format!("{:.0}", r.threads)
             } else {
@@ -753,6 +903,7 @@ fn insight(cx: &Ctx<'_, '_>, i: &Insight) -> Option<InsightV> {
             let title = match i.metric {
                 builtin::MEM_RSS => "Possible memory leak".to_owned(),
                 builtin::OPEN_FILES => "Open files keep growing — possible handle leak".to_owned(),
+                builtin::GPU_MEM => "GPU memory keeps growing — possible VRAM leak".to_owned(),
                 builtin::THREADS => "Thread count keeps growing".to_owned(),
                 _ => format!("{} keeps growing", d.name),
             };
@@ -887,6 +1038,7 @@ fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>
                 } else {
                     "—".into()
                 },
+                gpu: gpu_text(cx, p.get(builtin::GPU_UTIL), p.get(builtin::GPU_MEM)),
                 spark,
             }
         })
@@ -1049,6 +1201,64 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn dashboard_lists_gpus_with_history_and_top_users() {
+        let fx = fixture(&["ffmpeg"]);
+        let s = state(&fx, &req(Page::Dashboard, None));
+        assert!(s.has_gpu);
+        let d = s.dashboard.expect("dashboard");
+        assert_eq!(d.gpus.len(), 2);
+        assert_eq!(d.gpus[0].name, "Demo RTX 4080");
+        assert_eq!(d.gpus[0].vendor, "NVIDIA");
+        assert!(d.gpus[0].mem.contains(" / 16.0 GiB"), "{}", d.gpus[0].mem);
+        assert!(d.gpus[0].mem_frac > 0.0 && d.gpus[0].mem_frac < 1.0);
+        assert!(!d.gpus[0].spark.is_empty(), "history feeds the sparkline");
+        let chart = d.gpu_chart.expect("gpu chart");
+        assert_eq!(chart.lines.len(), 2);
+        assert_eq!(chart.y_ticks.last().unwrap().label, "100%");
+        assert_eq!(d.top_gpu[0].name, "api-server");
+        assert!(d.top_gpu.iter().any(|r| r.name == "ffmpeg" && r.watched));
+        assert!(d.top_gpu[0].value.contains('%') && d.top_gpu[0].value.contains("GiB"));
+    }
+
+    #[test]
+    fn monitor_shows_gpu_cards_tree_column_and_vram_growth() {
+        let fx = fixture(&["api-server"]);
+        let m = state(&fx, &req(Page::Monitor, Some("api-server")))
+            .monitor
+            .unwrap();
+        assert!(m.cards.iter().any(|c| c.id == "gpu.util"));
+        assert!(m.cards.iter().any(|c| c.id == "gpu.mem"));
+        assert!(m.tree[0].gpu.contains("GiB"), "{}", m.tree[0].gpu);
+        assert!(
+            m.insights.iter().any(|i| i.title.contains("VRAM leak")),
+            "{:?}",
+            m.insights
+        );
+    }
+
+    #[test]
+    fn processes_page_sorts_by_gpu() {
+        let fx = fixture(&[]);
+        let mut r = req(Page::Processes, None);
+        r.proc_sort = ProcSort::Gpu;
+        let rows = state(&fx, &r).processes.unwrap().rows;
+        assert_eq!(rows[0].name, "api-server");
+        assert!(rows[0].gpu.contains("GiB"));
+        let last = rows.last().unwrap();
+        assert_eq!(last.gpu, "—");
+    }
+
+    #[test]
+    fn machines_without_gpu_show_no_gpu_section() {
+        let mut fx = fixture(&[]);
+        fx.frame.gpus.clear();
+        let s = state(&fx, &req(Page::Dashboard, None));
+        assert!(!s.has_gpu);
+        let d = s.dashboard.unwrap();
+        assert!(d.gpus.is_empty() && d.gpu_chart.is_none() && d.top_gpu.is_empty());
     }
 
     #[test]

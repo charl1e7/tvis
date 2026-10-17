@@ -45,7 +45,7 @@ component WatchItem inherits Rectangle {
                 text: root.item.title;
                 font-weight: 600;
                 horizontal-stretch: 1;
-                max-width: 100px;
+                max-width: 90px;
             }
         }
         Label { text: root.item.subtitle; color: Theme.text-faint; font-size: Theme.fs-caption; }
@@ -153,21 +153,22 @@ component TreeLine inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-        Label { text: root.item.pid; width: 64px; color: Theme.text-faint; vertical-alignment: center; horizontal-alignment: right; font-size: Theme.fs-small; }
+        Label { text: root.item.pid; width: 56px; color: Theme.text-faint; vertical-alignment: center; horizontal-alignment: right; font-size: Theme.fs-small; }
         Rectangle {
-            width: 100px;
+            width: 90px;
             Meter { y: parent.height - 7px; height: 3px; frac: root.item.cpu-frac; tint: Theme.series[0]; }
-            Label { text: root.item.cpu; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+            Label { text: root.item.cpu; width: 100%; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
         }
         Rectangle {
-            width: 100px;
+            width: 90px;
             Meter { y: parent.height - 7px; height: 3px; frac: root.item.mem-frac; tint: Theme.series[1]; }
-            Label { text: root.item.mem; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+            Label { text: root.item.mem; width: 100%; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
         }
-        Label { text: root.item.threads; width: 54px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
-        Label { text: root.item.io; width: 170px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        if Backend.has-gpu: Label { text: root.item.gpu; width: 120px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Label { text: root.item.threads; width: 44px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Label { text: root.item.io; width: 140px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
         Sparkline {
-            width: 70px;
+            width: 56px;
             commands: root.item.spark;
             tint: Theme.accent;
             filled: false;
@@ -377,12 +378,13 @@ export component MonitorPage inherits Rectangle {
                                 padding-right: 12px;
                                 spacing: 10px;
                                 Caption { text: "PROCESS"; horizontal-stretch: 1; vertical-alignment: center; }
-                                Caption { text: "PID"; width: 64px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "CPU"; width: 100px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "MEMORY"; width: 100px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "THR"; width: 54px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "DISK READ / WRITE"; width: 170px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "TREND"; width: 70px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "PID"; width: 56px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "CPU"; width: 90px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "MEMORY"; width: 90px; horizontal-alignment: right; vertical-alignment: center; }
+                                if Backend.has-gpu: Caption { text: "GPU"; width: 120px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "THR"; width: 44px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "DISK R / W"; width: 140px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "TREND"; width: 56px; horizontal-alignment: right; vertical-alignment: center; }
                             }
                         }
                         for row in Backend.tree: TreeLine { item: row; }

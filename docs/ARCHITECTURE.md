@@ -4,9 +4,10 @@ TVIS 2 is a Cargo workspace with a strict dependency direction:
 
 ```
 crates/tvis        (binary: Slint UI, CLI, settings)
-      │  depends on
-      ▼
-crates/tvis-core   (library: no UI, no I/O besides the OS probes and export)
+   │         │
+   │         └──► crates/tvis-gpu   (GPU backends: NVML, DRM, WDDM, IOKit)
+   ▼                    │
+crates/tvis-core ◄──────┘            (library: no UI, no vendor SDKs)
 ```
 
 `tvis-core` never imports anything UI related, so it can be reused for a TUI,
@@ -60,6 +61,7 @@ retained-mode, so TVIS only has to hand it *new property values*:
 | `frame`    | `Frame`, `ProcessSample`, `SystemSample`: one immutable snapshot |
 | `source`   | `ProcessSource` (base data) and `Probe` (extra metrics for watched processes) |
 | `target`   | `Target::{Name, Pid}` and resolution to a process tree |
+| `gpu`      | `GpuSample` and the per-process GPU metrics |
 | `series`   | `TimeSeries` ring buffer, `decimate_min_max`, smoothing |
 | `stats`    | `Summary` (min/avg/p50/p95/p99/max/σ), OLS `linear_fit` |
 | `analysis` | automatic insights: growth (leaks), CPU saturation, spikes |
@@ -124,3 +126,25 @@ into a banner in `presenter::insight`.
   the CLI definition are tested separately.
 * UI smoke test: `tvis --demo --snapshot out.png --snapshot-page 1` renders any
   page headlessly (`xvfb-run` + `SLINT_BACKEND=winit-software`).
+
+## GPU backends (`tvis-gpu`)
+
+`GpuProbe` implements the core's `Probe` trait and merges a set of private
+`Backend`s, each returning a `Reading { devices, processes }`:
+
+* `nvml` — NVIDIA via `nvml-wrapper`; the library is `dlopen`ed so the binary
+  runs without a driver. Per-process data from the compute/graphics process
+  lists and `process_utilization_stats`.
+* `drm` — Linux sysfs, hwmon and `/proc/<pid>/fdinfo` (`drm-engine-*` busy time,
+  `drm-resident-*`/`drm-memory-*` memory) following the kernel's
+  `drm-usage-stats` format. Clients are de-duplicated by `drm-client-id`.
+* `windows` + `wddm` — WDDM performance counters read on a worker thread
+  (WMI connections are not `Send`); `wddm` holds the pure instance-name parsing
+  and Task-Manager-style aggregation.
+* `mac` — `ioreg -a` parsed with the `plist` crate.
+
+Every parser takes its input as data or a configurable root directory, so all
+of them are unit tested on every platform; only the OS access is
+`cfg`-gated. A backend that fails to initialise is simply absent, and when no
+backend works `GpuProbe::detect()` returns `None` and no GPU metrics are
+registered. To support another vendor or OS, add a `Backend`.
