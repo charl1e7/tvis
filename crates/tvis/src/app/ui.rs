@@ -22,9 +22,9 @@ use crate::settings::{
     INTERVALS_MS, RETENTIONS_SECS, Settings, SettingsStore, ThemeMode, WINDOWS_SECS,
 };
 use crate::{
-    AlertLogRow, AlertRuleRow, AppWindow, Backend, ChartData, ChartLine, CoreBar,
-    HoverItem, InsightRow, MetricCard, MonitorHeader, ProcRow, StatItem, SystemView, Theme,
-    TopRow, TreeRow, WatchRow,
+    AlertLogRow, AlertRuleRow, AppWindow, Backend, ChartData, ChartLine, CoreBar, HoverItem,
+    InsightRow, MetricCard, MonitorHeader, ProcRow, StatItem, SystemView, Theme, TopRow, TreeRow,
+    WatchRow,
 };
 
 thread_local! {
@@ -94,7 +94,10 @@ impl ChartModels {
         };
         let ticks = |t: &[Tick]| {
             t.iter()
-                .map(|t| crate::Tick { frac: t.frac, label: t.label.as_str().into() })
+                .map(|t| crate::Tick {
+                    frac: t.frac,
+                    label: t.label.as_str().into(),
+                })
                 .collect::<Vec<_>>()
         };
         sync(
@@ -122,7 +125,6 @@ pub struct Ui {
     store: SettingsStore,
     settings: RefCell<Settings>,
     registry: MetricRegistry,
-    cores: usize,
 
     // models
     watchlist: Rc<VecModel<WatchRow>>,
@@ -162,7 +164,6 @@ impl Ui {
         store: SettingsStore,
         settings: Settings,
         registry: MetricRegistry,
-        cores: usize,
         engine_info: String,
     ) -> Rc<Self> {
         let ui = Rc::new(Self {
@@ -172,7 +173,6 @@ impl Ui {
             store,
             settings: RefCell::new(settings),
             registry,
-            cores,
             watchlist: Rc::default(),
             cards: Rc::default(),
             stats: Rc::default(),
@@ -232,7 +232,10 @@ impl Ui {
         b.set_engine_info(engine_info.into());
         sync(&self.target_labels, vec!["All watched targets".into()]);
         let metrics: Vec<_> = self.registry.iter().collect();
-        sync(&self.metric_labels, metrics.iter().map(|d| d.name.into()).collect());
+        sync(
+            &self.metric_labels,
+            metrics.iter().map(|d| d.name.into()).collect(),
+        );
         sync(
             &self.metric_choices,
             metrics
@@ -268,7 +271,9 @@ impl Ui {
     }
 
     fn settings_changed(&self) {
-        let Some(w) = self.window.upgrade() else { return };
+        let Some(w) = self.window.upgrade() else {
+            return;
+        };
         let b = w.global::<Backend>();
         let (interval_changed, retention_changed);
         {
@@ -282,7 +287,11 @@ impl Ui {
             s.chart_fill = b.get_chart_fill();
             s.chart_grid = b.get_chart_grid();
             s.line_width = b.get_line_width().clamp(0, 2) as u8;
-            s.byte_base = if b.get_byte_base() == 1 { ByteBase::Decimal } else { ByteBase::Binary };
+            s.byte_base = if b.get_byte_base() == 1 {
+                ByteBase::Decimal
+            } else {
+                ByteBase::Binary
+            };
             s.cpu_normalized = b.get_cpu_normalized();
             s.window_secs = WINDOWS_SECS[b.get_window_index().clamp(0, 4) as usize];
             interval_changed = s.interval_ms != old_i;
@@ -293,10 +302,14 @@ impl Ui {
         }
         let s = self.settings.borrow().clone();
         if interval_changed {
-            let _ = self.engine.send(Command::SetInterval(Duration::from_millis(s.interval_ms)));
+            let _ = self
+                .engine
+                .send(Command::SetInterval(Duration::from_millis(s.interval_ms)));
         }
         if retention_changed {
-            let _ = self.engine.send(Command::SetRetention(Duration::from_secs(s.retention_secs)));
+            let _ = self
+                .engine
+                .send(Command::SetRetention(Duration::from_secs(s.retention_secs)));
         }
         self.sync_request();
         self.schedule_save();
@@ -306,11 +319,15 @@ impl Ui {
         let store = self.store.clone();
         let settings = self.settings.clone();
         // Debounce: slider drags would otherwise write the file on every step.
-        self.save_timer.start(TimerMode::SingleShot, Duration::from_millis(400), move || {
-            if let Err(e) = store.save(&settings.borrow()) {
-                tracing::warn!("could not save settings: {e}");
-            }
-        });
+        self.save_timer.start(
+            TimerMode::SingleShot,
+            Duration::from_millis(400),
+            move || {
+                if let Err(e) = store.save(&settings.borrow()) {
+                    tracing::warn!("could not save settings: {e}");
+                }
+            },
+        );
     }
 
     /// Writes pending changes immediately (used on exit).
@@ -325,7 +342,9 @@ impl Ui {
 
     /// Reads every view-related property and tells the engine to re-publish.
     pub fn sync_request(&self) {
-        let Some(w) = self.window.upgrade() else { return };
+        let Some(w) = self.window.upgrade() else {
+            return;
+        };
         let b = w.global::<Backend>();
         let s = self.settings.borrow();
         {
@@ -354,7 +373,9 @@ impl Ui {
     // ── applying engine output ───────────────────────────────────────────
 
     pub fn apply(&self, s: ViewState) {
-        let Some(w) = self.window.upgrade() else { return };
+        let Some(w) = self.window.upgrade() else {
+            return;
+        };
         let b = w.global::<Backend>();
         b.set_sampling_label(s.sampling_label.as_str().into());
         b.set_host(s.host.as_str().into());
@@ -455,7 +476,11 @@ impl Ui {
             &self.core_bars,
             d.cores
                 .iter()
-                .map(|(l, f, v)| CoreBar { label: l.as_str().into(), frac: *f, value: v.as_str().into() })
+                .map(|(l, f, v)| CoreBar {
+                    label: l.as_str().into(),
+                    frac: *f,
+                    value: v.as_str().into(),
+                })
                 .collect(),
         );
         self.cpu_chart.apply(d.cpu_chart.as_ref());
@@ -508,7 +533,10 @@ impl Ui {
             &self.stats,
             m.stats
                 .iter()
-                .map(|(l, v)| StatItem { label: l.as_str().into(), value: v.as_str().into() })
+                .map(|(l, v)| StatItem {
+                    label: l.as_str().into(),
+                    value: v.as_str().into(),
+                })
                 .collect(),
         );
         sync(
@@ -557,15 +585,25 @@ impl Ui {
             .alerts
             .iter()
             .map(|r| {
-                let unit = self.registry.find(&r.metric).map_or(Unit::Count, |d| d.unit);
-                let name = self.registry.find(&r.metric).map_or(r.metric.as_str(), |d| d.name);
+                let unit = self
+                    .registry
+                    .find(&r.metric)
+                    .map_or(Unit::Count, |d| d.unit);
+                let name = self
+                    .registry
+                    .find(&r.metric)
+                    .map_or(r.metric.as_str(), |d| d.name);
                 let base = self.settings.borrow().byte_base;
                 AlertRuleRow {
                     id: r.id as i32,
                     name: r.name.as_str().into(),
                     summary: format!(
                         "{name} {} {} for {} s",
-                        if r.comparison == Comparison::Above { "above" } else { "below" },
+                        if r.comparison == Comparison::Above {
+                            "above"
+                        } else {
+                            "below"
+                        },
                         format_value(unit, r.threshold, base),
                         r.for_secs
                     )
@@ -597,7 +635,11 @@ impl Ui {
         let time = chrono::Local::now().format("%H:%M:%S").to_string();
         self.alert_log.insert(
             0,
-            AlertLogRow { time: time.into(), text: text.as_str().into(), kind: i32::from(fired) },
+            AlertLogRow {
+                time: time.into(),
+                text: text.as_str().into(),
+                kind: i32::from(fired),
+            },
         );
         while self.alert_log.row_count() > 200 {
             self.alert_log.remove(self.alert_log.row_count() - 1);
@@ -608,18 +650,21 @@ impl Ui {
     }
 
     pub fn toast(&self, kind: i32, text: &str) {
-        let Some(w) = self.window.upgrade() else { return };
+        let Some(w) = self.window.upgrade() else {
+            return;
+        };
         let b = w.global::<Backend>();
         b.set_toast_kind(kind);
         b.set_toast_text(text.into());
         let seq = self.toast_seq.get() + 1;
         self.toast_seq.set(seq);
         let weak = self.window.clone();
-        self.toast_timer.start(TimerMode::SingleShot, Duration::from_secs(6), move || {
-            if let Some(w) = weak.upgrade() {
-                w.global::<Backend>().set_toast_text(SharedString::new());
-            }
-        });
+        self.toast_timer
+            .start(TimerMode::SingleShot, Duration::from_secs(6), move || {
+                if let Some(w) = weak.upgrade() {
+                    w.global::<Backend>().set_toast_text(SharedString::new());
+                }
+            });
     }
 
     // ── callbacks ────────────────────────────────────────────────────────
@@ -636,9 +681,15 @@ impl Ui {
             }};
         }
 
-        on!(on_page_changed, |ui, _p| { ui.sync_request(); });
-        on!(on_view_changed, |ui| { ui.settings_changed(); });
-        on!(on_settings_changed, |ui| { ui.settings_changed(); });
+        on!(on_page_changed, |ui, _p| {
+            ui.sync_request();
+        });
+        on!(on_view_changed, |ui| {
+            ui.settings_changed();
+        });
+        on!(on_settings_changed, |ui| {
+            ui.settings_changed();
+        });
         on!(on_toggle_pause, |ui| {
             if let Some(w) = ui.window.upgrade() {
                 let paused = !w.global::<Backend>().get_paused();
@@ -659,15 +710,30 @@ impl Ui {
         on!(on_select_metric, |ui, id| {
             ui.update_request(|r| r.metric = id.to_string());
         });
-        on!(on_unwatch, |ui, id| { ui.unwatch(id.as_str()); });
+        on!(on_unwatch, |ui, id| {
+            ui.unwatch(id.as_str());
+        });
         on!(on_clear_history, |ui, id| {
-            let _ = ui.engine.send(Command::ClearHistory(Some(TargetId::from(id.as_str()))));
+            let _ = ui
+                .engine
+                .send(Command::ClearHistory(Some(TargetId::from(id.as_str()))));
         });
         on!(on_export_target, |ui, id, fmt| {
-            ui.export(id.as_str(), if fmt == 1 { ExportFormat::Json } else { ExportFormat::Csv });
+            ui.export(
+                id.as_str(),
+                if fmt == 1 {
+                    ExportFormat::Json
+                } else {
+                    ExportFormat::Csv
+                },
+            );
         });
-        on!(on_chart_hover, |ui, f| { ui.hover(f); });
-        on!(on_chart_leave, |ui| { ui.leave(); });
+        on!(on_chart_hover, |ui, f| {
+            ui.hover(f);
+        });
+        on!(on_chart_leave, |ui| {
+            ui.leave();
+        });
         on!(on_open_data_dir, |ui| {
             if let Err(e) = opener::open(ui.store.dir()) {
                 ui.toast(2, &format!("Cannot open folder: {e}"));
@@ -675,14 +741,20 @@ impl Ui {
         });
 
         // processes
-        on!(on_proc_filter_changed, |ui, _t| { ui.sync_request(); });
+        on!(on_proc_filter_changed, |ui, _t| {
+            ui.sync_request();
+        });
         on!(on_sort_procs, |ui, col| {
             let sort = ProcSort::from_index(col);
             let (sort_now, asc_now) = {
                 let r = ui.request.lock().unwrap();
                 (r.proc_sort, r.proc_ascending)
             };
-            let ascending = if sort == sort_now { !asc_now } else { sort == ProcSort::Name };
+            let ascending = if sort == sort_now {
+                !asc_now
+            } else {
+                sort == ProcSort::Name
+            };
             ui.update_request(|r| {
                 r.proc_sort = sort;
                 r.proc_ascending = ascending;
@@ -711,29 +783,60 @@ impl Ui {
         });
 
         // alerts
-        on!(on_add_alert, |ui, name, target_idx, metric_idx, comparison, threshold, secs| {
-            ui.add_alert(name.as_str(), target_idx, metric_idx, comparison, threshold, secs);
+        on!(on_add_alert, |ui,
+                           name,
+                           target_idx,
+                           metric_idx,
+                           comparison,
+                           threshold,
+                           secs| {
+            ui.add_alert(
+                name.as_str(),
+                target_idx,
+                metric_idx,
+                comparison,
+                threshold,
+                secs,
+            );
         });
         on!(on_remove_alert, |ui, id| {
-            ui.settings.borrow_mut().alerts.retain(|r| r.id != id as u64);
+            ui.settings
+                .borrow_mut()
+                .alerts
+                .retain(|r| r.id != id as u64);
             ui.push_rules_to_engine();
         });
         on!(on_toggle_alert, |ui, id, enabled| {
-            if let Some(r) = ui.settings.borrow_mut().alerts.iter_mut().find(|r| r.id == id as u64) {
+            if let Some(r) = ui
+                .settings
+                .borrow_mut()
+                .alerts
+                .iter_mut()
+                .find(|r| r.id == id as u64)
+            {
                 r.enabled = enabled;
             }
             ui.push_rules_to_engine();
         });
-        on!(on_clear_alert_log, |ui| { sync(&ui.alert_log, vec![]); });
+        on!(on_clear_alert_log, |ui| {
+            sync(&ui.alert_log, vec![]);
+        });
         on!(on_reset_settings, |ui| {
             let watchlist = ui.settings.borrow().watchlist.clone();
-            *ui.settings.borrow_mut() = Settings { watchlist, ..Settings::default() };
+            *ui.settings.borrow_mut() = Settings {
+                watchlist,
+                ..Settings::default()
+            };
             ui.settings.borrow_mut().alerts.clear();
             if let Some(w) = ui.window.upgrade() {
                 ui.push_settings_to_ui(&w);
             }
-            let _ = ui.engine.send(Command::SetInterval(Duration::from_millis(1000)));
-            let _ = ui.engine.send(Command::SetRetention(Duration::from_secs(3600)));
+            let _ = ui
+                .engine
+                .send(Command::SetInterval(Duration::from_millis(1000)));
+            let _ = ui
+                .engine
+                .send(Command::SetRetention(Duration::from_secs(3600)));
             ui.push_rules_to_engine();
             ui.sync_request();
             ui.toast(1, "Settings restored to defaults");
@@ -756,7 +859,10 @@ impl Ui {
     }
 
     fn unwatch(&self, id: &str) {
-        self.settings.borrow_mut().watchlist.retain(|t| t.id().as_str() != id);
+        self.settings
+            .borrow_mut()
+            .watchlist
+            .retain(|t| t.id().as_str() != id);
         let _ = self.engine.send(Command::Unwatch(TargetId::from(id)));
         self.update_request(|r| {
             if r.selected.as_ref().is_some_and(|s| s.as_str() == id) {
@@ -766,25 +872,52 @@ impl Ui {
         self.schedule_save();
     }
 
-    fn add_alert(&self, name: &str, target_idx: i32, metric_idx: i32, comparison: i32, threshold: f32, secs: f32) {
-        let Some(desc) = self.registry.iter().nth(metric_idx.max(0) as usize) else { return };
+    fn add_alert(
+        &self,
+        name: &str,
+        target_idx: i32,
+        metric_idx: i32,
+        comparison: i32,
+        threshold: f32,
+        secs: f32,
+    ) {
+        let Some(desc) = self.registry.iter().nth(metric_idx.max(0) as usize) else {
+            return;
+        };
         if !threshold.is_finite() || threshold < 0.0 {
             self.toast(2, "Enter a threshold first");
             return;
         }
         let (_, multiplier) = threshold_unit(desc.unit);
         let target = (target_idx > 0)
-            .then(|| self.targets.borrow().get(target_idx as usize - 1).map(|(id, _)| id.clone()))
+            .then(|| {
+                self.targets
+                    .borrow()
+                    .get(target_idx as usize - 1)
+                    .map(|(id, _)| id.clone())
+            })
             .flatten();
         let mut s = self.settings.borrow_mut();
         let id = s.alerts.iter().map(|r| r.id).max().unwrap_or(0) + 1;
-        let cmp = if comparison == 1 { Comparison::Below } else { Comparison::Above };
+        let cmp = if comparison == 1 {
+            Comparison::Below
+        } else {
+            Comparison::Above
+        };
         let for_secs = f64::from(secs.max(0.0));
         let threshold = f64::from(threshold) * multiplier;
         s.alerts.push(AlertRule {
             id,
             name: if name.trim().is_empty() {
-                format!("{} {}", desc.name, if cmp == Comparison::Above { "high" } else { "low" })
+                format!(
+                    "{} {}",
+                    desc.name,
+                    if cmp == Comparison::Above {
+                        "high"
+                    } else {
+                        "low"
+                    }
+                )
             } else {
                 name.trim().to_owned()
             },
@@ -805,24 +938,43 @@ impl Ui {
         let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         let name: String = id
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let path = dir.join(format!("tvis-{name}-{stamp}.{}", format.extension()));
-        let _ = self.engine.send(Command::Export { target: TargetId::from(id), format, path });
+        let _ = self.engine.send(Command::Export {
+            target: TargetId::from(id),
+            format,
+            path,
+        });
     }
 
     // ── hover ────────────────────────────────────────────────────────────
 
     fn hover(&self, frac: f32) {
-        let Some(w) = self.window.upgrade() else { return };
+        let Some(w) = self.window.upgrade() else {
+            return;
+        };
         let b = w.global::<Backend>();
         let cache = self.chart_cache.borrow();
-        let Some(chart) = cache.as_ref().filter(|c| !c.lines.is_empty()) else { return };
+        let Some(chart) = cache.as_ref().filter(|c| !c.lines.is_empty()) else {
+            return;
+        };
 
         let nearest = |pts: &[(f32, f64)]| -> Option<(f32, f64)> {
             let i = pts.partition_point(|p| p.0 < frac);
-            let cands = [i.checked_sub(1), Some(i)].into_iter().flatten().filter_map(|j| pts.get(j));
-            cands.min_by(|a, c| (a.0 - frac).abs().total_cmp(&(c.0 - frac).abs())).copied()
+            let cands = [i.checked_sub(1), Some(i)]
+                .into_iter()
+                .flatten()
+                .filter_map(|j| pts.get(j));
+            cands
+                .min_by(|a, c| (a.0 - frac).abs().total_cmp(&(c.0 - frac).abs()))
+                .copied()
         };
         let mut items = Vec::new();
         let mut x = None;
@@ -839,7 +991,12 @@ impl Ui {
         let Some(x) = x else { return };
         let ago = f64::from(1.0 - x) * chart.window_secs;
         b.set_hover_time(
-            if ago < 0.5 { "now".to_owned() } else { format!("−{}", tvis_core::units::format_duration(ago)) }.into(),
+            if ago < 0.5 {
+                "now".to_owned()
+            } else {
+                format!("−{}", tvis_core::units::format_duration(ago))
+            }
+            .into(),
         );
         b.set_hover_frac(x);
         sync(&self.hover_items, items);

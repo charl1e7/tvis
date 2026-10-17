@@ -94,11 +94,18 @@ impl AlertEngine {
     }
 
     /// Evaluates every rule at time `now` and returns state transitions.
-    pub fn evaluate(&mut self, store: &Store, registry: &MetricRegistry, now: f64) -> Vec<AlertEvent> {
+    pub fn evaluate(
+        &mut self,
+        store: &Store,
+        registry: &MetricRegistry,
+        now: f64,
+    ) -> Vec<AlertEvent> {
         let mut events = Vec::new();
         let mut seen: Vec<(u64, TargetId)> = Vec::new();
         for rule in self.rules.iter().filter(|r| r.enabled) {
-            let Some(desc) = registry.find(&rule.metric) else { continue };
+            let Some(desc) = registry.find(&rule.metric) else {
+                continue;
+            };
             for data in store.targets() {
                 let id = data.id();
                 if rule.target.as_deref().is_some_and(|t| t != id.as_str()) {
@@ -174,13 +181,24 @@ mod tests {
     fn fires_after_duration_and_resolves_once() {
         let mut reg = MetricRegistry::new();
         reg.extend(builtin_descriptors());
-        let mut store = Store::new(Limits { retention_secs: 600.0, interval_secs: 1.0 });
+        let mut store = Store::new(Limits {
+            retention_secs: 600.0,
+            interval_secs: 1.0,
+        });
         store.watch(Target::Name("app".into()));
         let mut alerts = AlertEngine::default();
         alerts.set_rules(vec![rule(3.0)]);
 
         let mut log = Vec::new();
-        for (t, cpu) in [(0.0, 90.0), (1.0, 90.0), (2.0, 90.0), (3.0, 90.0), (4.0, 95.0), (5.0, 10.0), (6.0, 10.0)] {
+        for (t, cpu) in [
+            (0.0, 90.0),
+            (1.0, 90.0),
+            (2.0, 90.0),
+            (3.0, 90.0),
+            (4.0, 95.0),
+            (5.0, 10.0),
+            (6.0, 10.0),
+        ] {
             step(&mut store, &reg, t, cpu);
             log.extend(alerts.evaluate(&store, &reg, t));
         }
@@ -194,7 +212,10 @@ mod tests {
     fn short_spike_does_not_fire_and_scope_filters() {
         let mut reg = MetricRegistry::new();
         reg.extend(builtin_descriptors());
-        let mut store = Store::new(Limits { retention_secs: 600.0, interval_secs: 1.0 });
+        let mut store = Store::new(Limits {
+            retention_secs: 600.0,
+            interval_secs: 1.0,
+        });
         store.watch(Target::Name("app".into()));
         let mut alerts = AlertEngine::default();
         let mut scoped = rule(0.0);
@@ -212,7 +233,10 @@ mod tests {
     fn unknown_metric_is_ignored() {
         let mut reg = MetricRegistry::new();
         reg.extend(builtin_descriptors());
-        let mut store = Store::new(Limits { retention_secs: 600.0, interval_secs: 1.0 });
+        let mut store = Store::new(Limits {
+            retention_secs: 600.0,
+            interval_secs: 1.0,
+        });
         store.watch(Target::Name("app".into()));
         let mut alerts = AlertEngine::default();
         let mut r = rule(0.0);

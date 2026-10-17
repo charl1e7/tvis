@@ -1,3 +1,4 @@
+import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Backend } from "../backend.slint";
 import { Card, Label, Caption, Meter, Sparkline, Btn, Icon } from "../components/basic.slint";
@@ -31,10 +32,10 @@ component Kpi inherits Card {
         Label { text: root.detail; color: Theme.text-dim; font-size: Theme.fs-small; }
     }
     if root.spark != "": Sparkline {
-        x: parent.width - 120px - 12px;
-        y: 14px;
-        width: 120px;
-        height: 36px;
+        x: parent.width - 96px - 16px;
+        y: 16px;
+        width: 96px;
+        height: 28px;
         commands: root.spark;
         tint: root.tint;
     }
@@ -129,6 +130,7 @@ export component DashboardPage inherits Rectangle {
                 spacing: 16px;
                 Card {
                     min-height: 250px;
+                    horizontal-stretch: 1;
                     VerticalLayout {
                         padding: 16px;
                         spacing: 8px;
@@ -147,6 +149,7 @@ export component DashboardPage inherits Rectangle {
                 }
                 Card {
                     min-height: 250px;
+                    horizontal-stretch: 1;
                     VerticalLayout {
                         padding: 16px;
                         spacing: 8px;
@@ -163,7 +166,7 @@ export component DashboardPage inherits Rectangle {
             }
 
             Card {
-                height: 24px + 16px * 2 + Math.ceil(Backend.cores.length / 8) * 38px;
+                height: 24px + 16px * 2 + Math.ceil(Backend.cores.length / 8) * 46px;
                 VerticalLayout {
                     padding: 16px;
                     spacing: 8px;
@@ -173,12 +176,13 @@ export component DashboardPage inherits Rectangle {
                         property <length> cell-w: self.width / cols;
                         for core[i] in Backend.cores: Rectangle {
                             x: Math.mod(i, parent.cols) * parent.cell-w;
-                            y: Math.floor(i / parent.cols) * 38px;
+                            y: Math.floor(i / parent.cols) * 46px;
                             width: parent.cell-w;
-                            height: 38px;
+                            height: 46px;
                             VerticalLayout {
                                 padding-right: 12px;
                                 spacing: 4px;
+                                alignment: start;
                                 HorizontalLayout {
                                     Label { text: core.label; color: Theme.text-faint; font-size: Theme.fs-caption; horizontal-stretch: 1; }
                                     Label { text: core.value; color: Theme.text-dim; font-size: Theme.fs-caption; }

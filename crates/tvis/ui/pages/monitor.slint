@@ -1,3 +1,4 @@
+import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Backend } from "../backend.slint";
 import { Card, Label, Caption, Meter, Sparkline, Btn, Icon, Badge, StatusDot, Segmented, Toggle } from "../components/basic.slint";
@@ -5,12 +6,12 @@ import { LineChart } from "../components/chart.slint";
 import { MetricCard, WatchRow, InsightRow, TreeRow } from "../types.slint";
 
 component WatchItem inherits Rectangle {
-    in property <WatchRow> row;
+    in property <WatchRow> item;
     height: 66px;
     border-radius: 10px;
-    background: row.selected ? Theme.accent-soft : (ta.has-hover ? Theme.surface-hover : transparent);
+    background: item.selected ? Theme.accent-soft : (ta.has-hover ? Theme.surface-hover : transparent);
     animate background { duration: 100ms; }
-    if row.selected: Rectangle {
+    if item.selected: Rectangle {
         x: 0;
         width: 3px;
         height: 28px;
@@ -20,15 +21,15 @@ component WatchItem inherits Rectangle {
     }
     ta := TouchArea {
         mouse-cursor: MouseCursor.pointer;
-        clicked => { Backend.select-target(root.row.id); }
+        clicked => { Backend.select-target(root.item.id); }
     }
     Sparkline {
         x: parent.width - 86px;
         y: 12px;
         width: 70px;
         height: 24px;
-        commands: root.row.spark;
-        tint: root.row.selected ? Theme.accent : Theme.text-faint;
+        commands: root.item.spark;
+        tint: root.item.selected ? Theme.accent : Theme.text-faint;
         filled: false;
     }
     VerticalLayout {
@@ -39,19 +40,19 @@ component WatchItem inherits Rectangle {
         spacing: 3px;
         HorizontalLayout {
             spacing: 8px;
-            StatusDot { on: root.row.running; tint: root.row.alerting ? Theme.bad : Theme.good; y: 4px; }
+            StatusDot { on: root.item.running; tint: root.item.alerting ? Theme.bad : Theme.good; y: 4px; }
             Label {
-                text: root.row.title;
+                text: root.item.title;
                 font-weight: 600;
                 horizontal-stretch: 1;
-                max-width: 130px;
+                max-width: 100px;
             }
         }
-        Label { text: root.row.subtitle; color: Theme.text-faint; font-size: Theme.fs-caption; }
+        Label { text: root.item.subtitle; color: Theme.text-faint; font-size: Theme.fs-caption; }
         HorizontalLayout {
             spacing: 10px;
-            Label { text: root.row.cpu; color: Theme.text-dim; font-size: Theme.fs-small; font-weight: 600; }
-            Label { text: root.row.mem; color: Theme.text-dim; font-size: Theme.fs-small; }
+            Label { text: root.item.cpu; color: Theme.text-dim; font-size: Theme.fs-small; font-weight: 600; }
+            Label { text: root.item.mem; color: Theme.text-dim; font-size: Theme.fs-small; }
         }
     }
     if ta.has-hover: Btn {
@@ -61,7 +62,7 @@ component WatchItem inherits Rectangle {
         height: 24px;
         x: parent.width - 32px;
         y: parent.height - 32px;
-        clicked => { Backend.unwatch(root.row.id); }
+        clicked => { Backend.unwatch(root.item.id); }
     }
 }
 
@@ -109,8 +110,8 @@ component MetricTile inherits Rectangle {
 }
 
 component InsightBanner inherits Rectangle {
-    in property <InsightRow> row;
-    property <color> tint: row.severity >= 2 ? Theme.bad : row.severity == 1 ? Theme.warn : Theme.accent;
+    in property <InsightRow> item;
+    property <color> tint: item.severity >= 2 ? Theme.bad : item.severity == 1 ? Theme.warn : Theme.accent;
     height: 48px;
     border-radius: 10px;
     background: tint.with-alpha(0.10);
@@ -121,18 +122,18 @@ component InsightBanner inherits Rectangle {
         padding-right: 14px;
         spacing: 12px;
         Icon {
-            source: row.severity >= 1 ? @image-url("../icons/alert.svg") : @image-url("../icons/info.svg");
+            source: item.severity >= 1 ? @image-url("../icons/alert.svg") : @image-url("../icons/info.svg");
             color: root.tint;
             size: 18px;
             y: (parent.height - self.height) / 2;
         }
-        Label { text: root.row.title; font-weight: 700; color: root.tint; vertical-alignment: center; }
-        Label { text: root.row.detail; color: Theme.text-dim; vertical-alignment: center; horizontal-stretch: 1; }
+        Label { text: root.item.title; font-weight: 700; color: root.tint; vertical-alignment: center; }
+        Label { text: root.item.detail; color: Theme.text-dim; vertical-alignment: center; horizontal-stretch: 1; }
     }
 }
 
 component TreeLine inherits Rectangle {
-    in property <TreeRow> row;
+    in property <TreeRow> item;
     height: 36px;
     background: ta.has-hover ? Theme.surface-hi : transparent;
     ta := TouchArea { }
@@ -144,30 +145,30 @@ component TreeLine inherits Rectangle {
             horizontal-stretch: 1;
             min-width: 120px;
             Label {
-                x: root.row.depth * 16px;
+                x: root.item.depth * 16px;
                 width: parent.width - self.x;
-                text: (root.row.is-thread ? "⤷ " : "") + root.row.name;
-                color: root.row.is-thread ? Theme.text-dim : Theme.text;
-                font-weight: root.row.depth == 0 ? 700 : 500;
+                text: (root.item.is-thread ? "⤷ " : "") + root.item.name;
+                color: root.item.is-thread ? Theme.text-dim : Theme.text;
+                font-weight: root.item.depth == 0 ? 700 : 500;
                 vertical-alignment: center;
             }
         }
-        Label { text: root.row.pid; width: 64px; color: Theme.text-faint; vertical-alignment: center; horizontal-alignment: right; font-size: Theme.fs-small; }
+        Label { text: root.item.pid; width: 64px; color: Theme.text-faint; vertical-alignment: center; horizontal-alignment: right; font-size: Theme.fs-small; }
         Rectangle {
-            width: 130px;
-            Meter { y: parent.height - 7px; height: 3px; frac: root.row.cpu-frac; tint: Theme.series[0]; }
-            Label { text: root.row.cpu; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+            width: 100px;
+            Meter { y: parent.height - 7px; height: 3px; frac: root.item.cpu-frac; tint: Theme.series[0]; }
+            Label { text: root.item.cpu; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
         }
         Rectangle {
-            width: 130px;
-            Meter { y: parent.height - 7px; height: 3px; frac: root.row.mem-frac; tint: Theme.series[1]; }
-            Label { text: root.row.mem; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
+            width: 100px;
+            Meter { y: parent.height - 7px; height: 3px; frac: root.item.mem-frac; tint: Theme.series[1]; }
+            Label { text: root.item.mem; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; }
         }
-        Label { text: root.row.threads; width: 54px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
-        Label { text: root.row.io; width: 120px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Label { text: root.item.threads; width: 54px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
+        Label { text: root.item.io; width: 170px; horizontal-alignment: right; vertical-alignment: center; font-size: Theme.fs-small; color: Theme.text-dim; }
         Sparkline {
             width: 70px;
-            commands: root.row.spark;
+            commands: root.item.spark;
             tint: Theme.accent;
             filled: false;
             height: 20px;
@@ -235,7 +236,7 @@ export component MonitorPage inherits Rectangle {
                     VerticalLayout {
                         spacing: 4px;
                         alignment: start;
-                        for row in Backend.watchlist: WatchItem { row: row; }
+                        for row in Backend.watchlist: WatchItem { item: row; }
                     }
                 }
             }
@@ -274,7 +275,7 @@ export component MonitorPage inherits Rectangle {
                     Btn { kind: 3; text: "Stop watching"; icon: @image-url("../icons/trash.svg"); clicked => { Backend.unwatch(Backend.monitor.id); } }
                 }
 
-                for ins in Backend.insights: InsightBanner { row: ins; }
+                for ins in Backend.insights: InsightBanner { item: ins; }
 
                 // metric tiles
                 Rectangle {
@@ -377,14 +378,14 @@ export component MonitorPage inherits Rectangle {
                                 spacing: 10px;
                                 Caption { text: "PROCESS"; horizontal-stretch: 1; vertical-alignment: center; }
                                 Caption { text: "PID"; width: 64px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "CPU"; width: 130px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "MEMORY"; width: 130px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "CPU"; width: 100px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "MEMORY"; width: 100px; horizontal-alignment: right; vertical-alignment: center; }
                                 Caption { text: "THR"; width: 54px; horizontal-alignment: right; vertical-alignment: center; }
-                                Caption { text: "DISK R / W"; width: 120px; horizontal-alignment: right; vertical-alignment: center; }
+                                Caption { text: "DISK READ / WRITE"; width: 170px; horizontal-alignment: right; vertical-alignment: center; }
                                 Caption { text: "TREND"; width: 70px; horizontal-alignment: right; vertical-alignment: center; }
                             }
                         }
-                        for row in Backend.tree: TreeLine { row: row; }
+                        for row in Backend.tree: TreeLine { item: row; }
                     }
                 }
             }

@@ -42,7 +42,10 @@ impl From<&str> for TargetId {
 /// Case-insensitive name comparison that ignores a Windows `.exe` suffix.
 fn normalize(name: &str) -> String {
     let lower = name.to_lowercase();
-    lower.strip_suffix(".exe").map(str::to_owned).unwrap_or(lower)
+    lower
+        .strip_suffix(".exe")
+        .map(str::to_owned)
+        .unwrap_or(lower)
 }
 
 impl Target {
@@ -142,7 +145,10 @@ mod tests {
         assert_eq!(pids[..2], [10, 20]);
         pids.sort();
         assert_eq!(pids, vec![10, 11, 12, 13, 20]);
-        assert_eq!(Target::Name("APP.EXE".into()).id(), Target::Name("app".into()).id());
+        assert_eq!(
+            Target::Name("APP.EXE".into()).id(),
+            Target::Name("app".into()).id()
+        );
     }
 
     #[test]

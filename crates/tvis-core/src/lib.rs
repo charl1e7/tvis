@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 //! # tvis-core
 //!
 //! UI-agnostic engine behind the TVIS process profiler.

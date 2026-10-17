@@ -115,7 +115,10 @@ mod tests {
     fn data() -> (TargetData, MetricRegistry) {
         let mut reg = MetricRegistry::new();
         reg.extend(builtin_descriptors());
-        let mut store = Store::new(Limits { retention_secs: 60.0, interval_secs: 1.0 });
+        let mut store = Store::new(Limits {
+            retention_secs: 60.0,
+            interval_secs: 1.0,
+        });
         let t = Target::Name("app".into());
         store.watch(t.clone());
         for i in 0..3 {

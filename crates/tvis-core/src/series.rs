@@ -41,7 +41,10 @@ impl TimeSeries {
 
     fn evict(&mut self, now: f64) {
         while self.points.len() > self.max_points
-            || self.points.front().is_some_and(|p| now - p.t > self.max_age)
+            || self
+                .points
+                .front()
+                .is_some_and(|p| now - p.t > self.max_age)
         {
             self.points.pop_front();
         }
@@ -76,10 +79,7 @@ impl TimeSeries {
     /// The values of the last `window_secs` seconds measured from the newest point.
     pub fn window_values(&self, window_secs: f64) -> Vec<f64> {
         match self.last() {
-            Some(last) => self
-                .since(last.t - window_secs)
-                .map(|p| p.v)
-                .collect(),
+            Some(last) => self.since(last.t - window_secs).map(|p| p.v).collect(),
             None => Vec::new(),
         }
     }
@@ -200,7 +200,12 @@ mod tests {
 
     #[test]
     fn smoothing_dampens_but_preserves_constant() {
-        let mut c: Vec<Point> = (0..10).map(|i| Point { t: i as f64, v: 5.0 }).collect();
+        let mut c: Vec<Point> = (0..10)
+            .map(|i| Point {
+                t: i as f64,
+                v: 5.0,
+            })
+            .collect();
         smooth(&mut c, 0.8);
         assert!(c.iter().all(|p| (p.v - 5.0).abs() < 1e-9));
         let mut s = pts(21);

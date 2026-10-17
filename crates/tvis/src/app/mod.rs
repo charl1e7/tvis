@@ -11,12 +11,12 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use slint::ComponentHandle;
+use tvis_core::Target;
 use tvis_core::alert::AlertEvent;
 use tvis_core::engine::{Command, Engine, EngineConfig, EngineView, Event, Observer};
 use tvis_core::metric::MetricRegistry;
 use tvis_core::source::{OpenFilesProbe, Probe, ProcessSource, SyntheticSource, SysinfoSource};
 use tvis_core::units::{ByteBase, format_value};
-use tvis_core::Target;
 
 use self::ui::{Ui, with_ui};
 use self::view::{SharedRequest, ViewRequest, ViewState};
@@ -40,11 +40,16 @@ impl UiObserver {
     }
 
     fn describe(&self, n: &tvis_core::alert::AlertNotice, fired: bool) -> String {
-        let base = self.request.lock().map_or(ByteBase::Binary, |r| r.byte_base);
+        let base = self
+            .request
+            .lock()
+            .map_or(ByteBase::Binary, |r| r.byte_base);
         let (name, unit) = self
             .registry
             .get(n.metric)
-            .map_or((n.metric.as_str(), tvis_core::metric::Unit::Count), |d| (d.name, d.unit));
+            .map_or((n.metric.as_str(), tvis_core::metric::Unit::Count), |d| {
+                (d.name, d.unit)
+            });
         let cmp = match n.comparison {
             tvis_core::alert::Comparison::Above => "above",
             tvis_core::alert::Comparison::Below => "below",
@@ -58,7 +63,10 @@ impl UiObserver {
                 format_value(unit, n.threshold, base)
             )
         } else {
-            format!("{} — {}: {name} back to normal", n.rule_name, n.target_title)
+            format!(
+                "{} — {}: {name} back to normal",
+                n.rule_name, n.target_title
+            )
         }
     }
 }
@@ -110,7 +118,10 @@ pub fn make_source(demo: bool) -> (Box<dyn ProcessSource>, Vec<Box<dyn Probe>>) 
     if demo {
         (Box::new(SyntheticSource::new(900)), vec![])
     } else {
-        (Box::new(SysinfoSource::new()), vec![Box::new(OpenFilesProbe::new())])
+        (
+            Box::new(SysinfoSource::new()),
+            vec![Box::new(OpenFilesProbe::new())],
+        )
     }
 }
 
@@ -154,7 +165,11 @@ pub fn run(cli: Cli) -> Result<()> {
     let engine_info = format!(
         "{} · {} · {} metrics{}",
         system.os,
-        if system.cpu_brand.is_empty() { format!("{} cores", system.cpu_cores) } else { system.cpu_brand.clone() },
+        if system.cpu_brand.is_empty() {
+            format!("{} cores", system.cpu_cores)
+        } else {
+            system.cpu_brand.clone()
+        },
         registry.len(),
         if cli.demo { " · demo data" } else { "" }
     );
@@ -165,7 +180,6 @@ pub fn run(cli: Cli) -> Result<()> {
         store,
         settings.clone(),
         registry,
-        system.cpu_cores,
         engine_info,
     );
 
@@ -182,6 +196,12 @@ pub fn run(cli: Cli) -> Result<()> {
 
     if let Some(path) = cli.dev.snapshot.clone() {
         ui.select_page(cli.dev.snapshot_page);
+        if cli.dev.snapshot_height > 0 {
+            window.window().set_size(slint::LogicalSize::new(
+                1360.0,
+                cli.dev.snapshot_height as f32,
+            ));
+        }
         schedule_snapshot(&window, path, Duration::from_millis(cli.dev.snapshot_delay));
     }
 
@@ -197,9 +217,13 @@ fn schedule_snapshot(window: &AppWindow, path: std::path::PathBuf, delay: Durati
     slint::Timer::single_shot(delay, move || {
         let result = (|| -> Result<()> {
             let w = weak.upgrade().context("window is gone")?;
-            let img = w.window().take_snapshot().context("renderer cannot take snapshots")?;
+            let img = w
+                .window()
+                .take_snapshot()
+                .context("renderer cannot take snapshots")?;
             let file = std::fs::File::create(&path)?;
-            let mut enc = png::Encoder::new(std::io::BufWriter::new(file), img.width(), img.height());
+            let mut enc =
+                png::Encoder::new(std::io::BufWriter::new(file), img.width(), img.height());
             enc.set_color(png::ColorType::Rgba);
             enc.set_depth(png::BitDepth::Eight);
             enc.write_header()?.write_image_data(img.as_bytes())?;

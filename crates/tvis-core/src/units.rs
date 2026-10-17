@@ -145,7 +145,10 @@ mod tests {
         assert_eq!(format_bytes(1536.0, ByteBase::Binary), "1.50 KiB");
         assert_eq!(format_bytes(1_500_000.0, ByteBase::Decimal), "1.50 MB");
         assert_eq!(format_bytes(250.0 * 1048576.0, ByteBase::Binary), "250 MiB");
-        assert_eq!(format_bytes(12.34 * 1073741824.0, ByteBase::Binary), "12.3 GiB");
+        assert_eq!(
+            format_bytes(12.34 * 1073741824.0, ByteBase::Binary),
+            "12.3 GiB"
+        );
     }
 
     #[test]
@@ -158,7 +161,10 @@ mod tests {
 
     #[test]
     fn trend_sign() {
-        assert_eq!(format_trend(Unit::Bytes, 1048576.0 / 60.0, ByteBase::Binary), "+1.00 MiB/min");
+        assert_eq!(
+            format_trend(Unit::Bytes, 1048576.0 / 60.0, ByteBase::Binary),
+            "+1.00 MiB/min"
+        );
         assert!(format_trend(Unit::Percent, -1.0, ByteBase::Binary).starts_with('−'));
     }
 

@@ -110,6 +110,8 @@ pub struct Engine {
     started: Instant,
     start_wall_ms: u64,
     last_frame: Option<Frame>,
+    /// Frames supplied by [`ProcessSource::backfill`]; replayed into targets added later.
+    history: Vec<Frame>,
 }
 
 fn clamp_interval(d: Duration) -> Duration {
@@ -151,6 +153,7 @@ impl Engine {
             started: Instant::now(),
             start_wall_ms: wall_now_ms(),
             last_frame: None,
+            history: Vec::new(),
         }
     }
 
@@ -205,10 +208,15 @@ impl Engine {
             Command::Watch(t) => {
                 let id = t.id();
                 // Show something immediately instead of waiting for the next tick.
-                if self.store.watch(t)
-                    && let Some(frame) = &self.last_frame {
+                if self.store.watch(t) {
+                    for frame in self
+                        .history
+                        .iter()
+                        .chain(self.last_frame.iter().filter(|_| self.history.is_empty()))
+                    {
                         self.store.ingest_target(&id, frame, &self.registry);
                     }
+                }
             }
             Command::Unwatch(id) => {
                 self.store.unwatch(&id);
@@ -236,7 +244,11 @@ impl Engine {
             }
             Command::SetPaused(p) => self.config.paused = p,
             Command::SetAlertRules(rules) => self.alerts.set_rules(rules),
-            Command::Export { target, format, path } => {
+            Command::Export {
+                target,
+                format,
+                path,
+            } => {
                 let result = self.export(&target, format, &path);
                 observer.on_event(Event::ExportFinished { target, result });
             }
@@ -246,8 +258,16 @@ impl Engine {
         true
     }
 
-    fn export(&self, id: &TargetId, format: ExportFormat, path: &PathBuf) -> Result<PathBuf, String> {
-        let data = self.store.target(id).ok_or_else(|| format!("{id} is not watched"))?;
+    fn export(
+        &self,
+        id: &TargetId,
+        format: ExportFormat,
+        path: &PathBuf,
+    ) -> Result<PathBuf, String> {
+        let data = self
+            .store
+            .target(id)
+            .ok_or_else(|| format!("{id} is not watched"))?;
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         }
@@ -279,16 +299,22 @@ impl Engine {
             .name("tvis-engine".into())
             .spawn(move || self.run(rx, Box::new(observer)))
             .expect("failed to spawn engine thread");
-        EngineHandle { tx, join: Some(join) }
+        EngineHandle {
+            tx,
+            join: Some(join),
+        }
     }
 
     fn run(mut self, rx: Receiver<Command>, mut observer: Box<dyn Observer>) {
         // Replay history that predates the engine (demo / imported sources).
         for mut frame in self.source.backfill() {
-            frame.wall_ms = self.start_wall_ms.saturating_add_signed((frame.t * 1000.0) as i64);
+            frame.wall_ms = self
+                .start_wall_ms
+                .saturating_add_signed((frame.t * 1000.0) as i64);
             self.store.ingest(&frame, &self.registry);
-            self.last_frame = Some(frame);
+            self.history.push(frame);
         }
+        self.last_frame = self.history.last().cloned();
         self.publish(UpdateReason::Command, observer.as_mut());
 
         let mut next_tick = Instant::now() + WARMUP;
@@ -369,10 +395,11 @@ mod tests {
         fn on_update(&mut self, view: &EngineView<'_>) {
             let t = view.store.targets().first();
             let n = t.map_or(0, |t| t.series(builtin::CPU).map_or(0, |s| s.len()));
-            self.updates
-                .lock()
-                .unwrap()
-                .push((view.reason, n, t.and_then(|t| t.current(builtin::CPU))));
+            self.updates.lock().unwrap().push((
+                view.reason,
+                n,
+                t.and_then(|t| t.current(builtin::CPU)),
+            ));
         }
 
         fn on_event(&mut self, event: Event) {
@@ -388,7 +415,10 @@ mod tests {
         Engine::new(
             Box::new(SyntheticSource::new(20)),
             vec![],
-            EngineConfig { interval: MIN_INTERVAL, ..Default::default() },
+            EngineConfig {
+                interval: MIN_INTERVAL,
+                ..Default::default()
+            },
         )
     }
 
@@ -412,7 +442,7 @@ mod tests {
                 .lock()
                 .unwrap()
                 .iter()
-                .any(|(r, n, _)| *r == UpdateReason::Tick && *n >= 3)
+                .any(|(r, n, _)| *r == UpdateReason::Tick && *n >= 21)
         });
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("nested/out.csv");
@@ -421,7 +451,14 @@ mod tests {
             format: ExportFormat::Csv,
             path: path.clone(),
         });
-        wait_for(|| probe.events.lock().unwrap().iter().any(|e| e == "export:true"));
+        wait_for(|| {
+            probe
+                .events
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|e| e == "export:true")
+        });
         let csv = fs::read_to_string(&path).unwrap();
         assert!(csv.lines().count() >= 4);
         assert!(csv.starts_with("time_unix_ms,t_seconds,cpu"));
@@ -433,7 +470,14 @@ mod tests {
         let probe = Probe1::default();
         let handle = fast_engine().spawn(probe.clone());
         handle.send(Command::Watch(Target::Name("nginx".into())));
-        wait_for(|| probe.updates.lock().unwrap().iter().any(|(r, ..)| *r == UpdateReason::Tick));
+        wait_for(|| {
+            probe
+                .updates
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|(r, ..)| *r == UpdateReason::Tick)
+        });
         handle.send(Command::SetPaused(true));
         thread::sleep(Duration::from_millis(250));
         let paused_at = probe.updates.lock().unwrap().len();
@@ -450,7 +494,14 @@ mod tests {
         handle.send(Command::Watch(Target::Name("nginx".into())));
         wait_for(|| probe.updates.lock().unwrap().iter().any(|(_, n, _)| *n > 0));
         handle.send(Command::Unwatch(Target::Name("nginx".into()).id()));
-        wait_for(|| probe.updates.lock().unwrap().last().is_some_and(|(_, n, _)| *n == 0));
+        wait_for(|| {
+            probe
+                .updates
+                .lock()
+                .unwrap()
+                .last()
+                .is_some_and(|(_, n, _)| *n == 0)
+        });
         drop(handle);
     }
 }

@@ -1,4 +1,9 @@
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+// Slint-generated global accessors carry an elided lifetime (`Backend<'_>`).
+#![allow(elided_lifetimes_in_paths)]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 mod app;
 mod cli;

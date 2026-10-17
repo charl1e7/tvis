@@ -6,22 +6,22 @@ import { ProcRow } from "../types.slint";
 
 component HeaderCell inherits Rectangle {
     in property <string> text;
-    in property <int> col;
+    in property <int> column;
     in property <bool> right: true;
     callback clicked;
     TouchArea {
         mouse-cursor: MouseCursor.pointer;
-        clicked => { Backend.sort-procs(root.col); }
+        clicked => { Backend.sort-procs(root.column); }
     }
     HorizontalLayout {
         spacing: 4px;
-        alignment: root.right ? end : start;
+        alignment: root.right ? LayoutAlignment.end : LayoutAlignment.start;
         Caption {
             text: root.text;
-            color: Backend.proc-sort-col == root.col ? Theme.accent : Theme.text-faint;
+            color: Backend.proc-sort-col == root.column ? Theme.accent : Theme.text-faint;
             vertical-alignment: center;
         }
-        if Backend.proc-sort-col == root.col: Icon {
+        if Backend.proc-sort-col == root.column: Icon {
             source: Backend.proc-sort-asc ? @image-url("../icons/arrow-up.svg") : @image-url("../icons/arrow-down.svg");
             color: Theme.accent;
             size: 11px;
@@ -79,11 +79,11 @@ export component ProcessesPage inherits Rectangle {
                         padding-left: 16px;
                         padding-right: 16px;
                         spacing: 12px;
-                        HeaderCell { text: "NAME"; col: 0; right: false; horizontal-stretch: 1; }
-                        HeaderCell { text: Backend.proc-group ? "COUNT" : "PID"; col: 4; width: 70px; }
-                        HeaderCell { text: "CPU"; col: 1; width: 150px; }
-                        HeaderCell { text: "MEMORY"; col: 2; width: 150px; }
-                        HeaderCell { text: "THREADS"; col: 3; width: 70px; }
+                        HeaderCell { text: "NAME"; column: 0; right: false; horizontal-stretch: 1; }
+                        HeaderCell { text: Backend.proc-group ? "COUNT" : "PID"; column: 4; width: 70px; }
+                        HeaderCell { text: "CPU"; column: 1; width: 150px; }
+                        HeaderCell { text: "MEMORY"; column: 2; width: 150px; }
+                        HeaderCell { text: "THREADS"; column: 3; width: 70px; }
                         Rectangle { width: 40px; }
                     }
                 }
@@ -101,12 +101,12 @@ export component ProcessesPage inherits Rectangle {
                             Rectangle {
                                 width: 150px;
                                 Meter { y: parent.height - 8px; height: 3px; frac: row.cpu-frac; tint: Theme.series[0]; }
-                                Label { text: row.cpu; horizontal-alignment: right; vertical-alignment: center; }
+                                Label { text: row.cpu; width: 100%; horizontal-alignment: right; vertical-alignment: center; }
                             }
                             Rectangle {
                                 width: 150px;
                                 Meter { y: parent.height - 8px; height: 3px; frac: row.mem-frac; tint: Theme.series[1]; }
-                                Label { text: row.mem; horizontal-alignment: right; vertical-alignment: center; }
+                                Label { text: row.mem; width: 100%; horizontal-alignment: right; vertical-alignment: center; }
                             }
                             Label { text: row.threads; width: 70px; horizontal-alignment: right; vertical-alignment: center; color: Theme.text-dim; }
                             Btn {

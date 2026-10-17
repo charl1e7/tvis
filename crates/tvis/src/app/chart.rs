@@ -142,7 +142,7 @@ fn paths(points: &[Point], start: f64, frame: Plot, axis_max: f64) -> (String, S
     let mut stroke = String::with_capacity(points.len() * 14);
     let mut fill = String::with_capacity(points.len() * 14);
     let mut segment: Vec<(f64, f64)> = Vec::new();
-    let mut flush = |segment: &mut Vec<(f64, f64)>, stroke: &mut String, fill: &mut String| {
+    let flush = |segment: &mut Vec<(f64, f64)>, stroke: &mut String, fill: &mut String| {
         if segment.is_empty() {
             return;
         }
@@ -186,12 +186,16 @@ pub fn sparkline(points: &[Point], window: f64, now: f64, max_points: usize) -> 
         return String::new();
     }
     pts = decimate_min_max(&pts, max_points);
-    let (lo, hi) = pts
-        .iter()
-        .fold((f64::MAX, f64::MIN), |(lo, hi), p| (lo.min(p.v), hi.max(p.v)));
+    let (lo, hi) = pts.iter().fold((f64::MAX, f64::MIN), |(lo, hi), p| {
+        (lo.min(p.v), hi.max(p.v))
+    });
     // Keep flat lines in the middle instead of stretching noise to full height.
     let span = (hi - lo).max(hi.abs() * 0.05).max(1e-9);
-    let base = if hi - lo < hi.abs() * 0.05 { lo - span / 2.0 } else { lo };
+    let base = if hi - lo < hi.abs() * 0.05 {
+        lo - span / 2.0
+    } else {
+        lo
+    };
     let t0 = pts[0].t;
     let t1 = pts[pts.len() - 1].t;
     let dt = (t1 - t0).max(1e-9);
@@ -209,17 +213,32 @@ mod tests {
     use super::*;
 
     fn frame(now: f64, window: f64) -> Plot {
-        Plot { now, window, width_px: 800, smoothing: 0.0, gap: 3.0 }
+        Plot {
+            now,
+            window,
+            width_px: 800,
+            smoothing: 0.0,
+            gap: 3.0,
+        }
     }
 
     fn line(n: usize, f: impl Fn(usize) -> f64) -> Vec<Point> {
-        (0..n).map(|i| Point { t: i as f64, v: f(i) }).collect()
+        (0..n)
+            .map(|i| Point {
+                t: i as f64,
+                v: f(i),
+            })
+            .collect()
     }
 
     #[test]
     fn builds_closed_fill_and_stroke_inside_the_box() {
         let c = build(
-            vec![Input { name: "a".into(), color: 0, points: line(60, |i| i as f64) }],
+            vec![Input {
+                name: "a".into(),
+                color: 0,
+                points: line(60, |i| i as f64),
+            }],
             Unit::Count,
             ByteBase::Binary,
             frame(59.0, 60.0),
@@ -242,9 +261,16 @@ mod tests {
     #[test]
     fn gaps_split_the_line() {
         let mut pts = line(10, |_| 5.0);
-        pts.extend((30..40).map(|i| Point { t: i as f64, v: 5.0 }));
+        pts.extend((30..40).map(|i| Point {
+            t: i as f64,
+            v: 5.0,
+        }));
         let c = build(
-            vec![Input { name: "a".into(), color: 0, points: pts }],
+            vec![Input {
+                name: "a".into(),
+                color: 0,
+                points: pts,
+            }],
             Unit::Count,
             ByteBase::Binary,
             frame(39.0, 60.0),
@@ -256,7 +282,11 @@ mod tests {
     #[test]
     fn fixed_scale_keeps_ticks_in_range() {
         let c = build(
-            vec![Input { name: "cpu".into(), color: 0, points: line(10, |_| 50.0) }],
+            vec![Input {
+                name: "cpu".into(),
+                color: 0,
+                points: line(10, |_| 50.0),
+            }],
             Unit::Percent,
             ByteBase::Binary,
             frame(9.0, 30.0),
@@ -270,8 +300,16 @@ mod tests {
     fn empty_and_single_point_inputs_do_not_panic() {
         let c = build(
             vec![
-                Input { name: "e".into(), color: 0, points: vec![] },
-                Input { name: "one".into(), color: 1, points: vec![Point { t: 1.0, v: 1.0 }] },
+                Input {
+                    name: "e".into(),
+                    color: 0,
+                    points: vec![],
+                },
+                Input {
+                    name: "one".into(),
+                    color: 1,
+                    points: vec![Point { t: 1.0, v: 1.0 }],
+                },
             ],
             Unit::Bytes,
             ByteBase::Decimal,
@@ -287,7 +325,10 @@ mod tests {
         assert!(sparkline(&line(1, |_| 1.0), 60.0, 0.0, 30).is_empty());
         let s = sparkline(&line(100, |i| (i % 10) as f64), 200.0, 99.0, 30);
         assert!(s.starts_with('M'));
-        let nums: Vec<f64> = s.split_whitespace().filter_map(|t| t.parse().ok()).collect();
+        let nums: Vec<f64> = s
+            .split_whitespace()
+            .filter_map(|t| t.parse().ok())
+            .collect();
         assert!(nums.iter().all(|n| (0.0..=1000.0).contains(n)));
     }
 }

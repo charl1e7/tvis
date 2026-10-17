@@ -1,8 +1,6 @@
 use std::time::Instant;
 
-use sysinfo::{
-    MemoryRefreshKind, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind,
-};
+use sysinfo::{MemoryRefreshKind, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 use super::{Probe, ProbeContext, ProcessSource};
 use crate::frame::{Frame, ProcessKind, ProcessSample, SystemInfo, SystemSample};
@@ -48,7 +46,10 @@ impl ProcessSource for SysinfoSource {
             host_name: System::host_name().unwrap_or_default(),
             os: System::long_os_version().unwrap_or_else(|| System::name().unwrap_or_default()),
             kernel: System::kernel_version().unwrap_or_default(),
-            cpu_brand: cpus.first().map(|c| c.brand().trim().to_owned()).unwrap_or_default(),
+            cpu_brand: cpus
+                .first()
+                .map(|c| c.brand().trim().to_owned())
+                .unwrap_or_default(),
             cpu_cores: cpus.len().max(1),
             physical_cores: System::physical_core_count().unwrap_or(cpus.len()).max(1),
         }
@@ -66,14 +67,20 @@ impl ProcessSource for SysinfoSource {
         let dt = self.last_refresh.elapsed().as_secs_f64().max(0.05);
         self.last_refresh = Instant::now();
         self.sys.refresh_cpu_usage();
-        self.sys.refresh_memory_specifics(MemoryRefreshKind::everything());
+        self.sys
+            .refresh_memory_specifics(MemoryRefreshKind::everything());
         self.sys
             .refresh_processes_specifics(ProcessesToUpdate::All, true, Self::refresh_kind());
 
         let load = System::load_average();
         let system = SystemSample {
             cpu_total: f64::from(self.sys.global_cpu_usage()),
-            cpu_per_core: self.sys.cpus().iter().map(|c| f64::from(c.cpu_usage())).collect(),
+            cpu_per_core: self
+                .sys
+                .cpus()
+                .iter()
+                .map(|c| f64::from(c.cpu_usage()))
+                .collect(),
             mem_total: self.sys.total_memory(),
             mem_used: self.sys.used_memory(),
             swap_total: self.sys.total_swap(),
@@ -187,7 +194,9 @@ mod tests {
         let mut src = SysinfoSource::new();
         std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
         let frame = src.sample();
-        let me = frame.process(std::process::id()).expect("own process listed");
+        let me = frame
+            .process(std::process::id())
+            .expect("own process listed");
         assert!(me.value(builtin::MEM_RSS) > 0.0);
         assert!(frame.system.mem_total > 0);
         assert!(src.info().cpu_cores >= 1);
@@ -200,10 +209,24 @@ mod tests {
         let me = std::process::id();
         OpenFilesProbe::new().probe(&ProbeContext { watched: &[me] }, &mut frame);
         // Platforms without support simply report nothing.
-        if cfg!(any(target_os = "linux", target_os = "macos", target_os = "windows")) {
-            assert!(frame.process(me).unwrap().get(builtin::OPEN_FILES).is_some());
+        if cfg!(any(
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )) {
+            assert!(
+                frame
+                    .process(me)
+                    .unwrap()
+                    .get(builtin::OPEN_FILES)
+                    .is_some()
+            );
         }
-        let other = frame.processes.iter().find(|p| p.pid != me && !p.is_thread()).unwrap();
+        let other = frame
+            .processes
+            .iter()
+            .find(|p| p.pid != me && !p.is_thread())
+            .unwrap();
         assert!(other.get(builtin::OPEN_FILES).is_none());
     }
 }

@@ -1,6 +1,6 @@
 import { Theme } from "../theme.slint";
 
-export component Icon inherits Rectangle {
+export component Icon {
     in property <image> source;
     in property <color> color: Theme.text-dim;
     in property <length> size: 16px;
@@ -371,6 +371,7 @@ export component Sparkline inherits Rectangle {
         height: 100%;
         viewbox-width: 1000;
         viewbox-height: 1000;
+        fit: ImageFit.fill;
         commands: root.commands + (root.filled ? " L 1000 1000 L 0 1000 Z" : "");
         fill: root.filled ? @linear-gradient(180deg, root.tint.with-alpha(0.30) 0%, root.tint.with-alpha(0.0) 100%) : transparent;
         stroke: transparent;
@@ -380,6 +381,7 @@ export component Sparkline inherits Rectangle {
         height: 100%;
         viewbox-width: 1000;
         viewbox-height: 1000;
+        fit: ImageFit.fill;
         commands: root.commands;
         stroke: root.tint;
         stroke-width: 1.5px;

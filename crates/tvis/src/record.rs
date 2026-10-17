@@ -4,9 +4,9 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, bail};
 use crossbeam_channel::{Sender, unbounded};
+use tvis_core::Target;
 use tvis_core::engine::{Command, Engine, EngineConfig, EngineView, Event, Observer};
 use tvis_core::export::ExportFormat;
-use tvis_core::Target;
 
 use crate::app::make_source;
 use crate::cli::{Cli, Format, RecordArgs};
@@ -43,7 +43,12 @@ pub fn run(cli: &Cli, args: &RecordArgs) -> Result<()> {
     let id = target.id();
     handle.send(Command::Watch(target));
 
-    eprintln!("Recording {} for {} s every {} ms…", args.target, args.duration, interval.as_millis());
+    eprintln!(
+        "Recording {} for {} s every {} ms…",
+        args.target,
+        args.duration,
+        interval.as_millis()
+    );
     let end = Instant::now() + Duration::from_secs(args.duration);
     while Instant::now() < end {
         std::thread::sleep(Duration::from_millis(200).min(end - Instant::now()));

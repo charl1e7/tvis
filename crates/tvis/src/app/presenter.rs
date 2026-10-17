@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 
+use tvis_core::Target;
 use tvis_core::analysis::{Insight, InsightKind, Severity, analyze};
 use tvis_core::engine::EngineView;
 use tvis_core::frame::{Frame, ProcessSample};
@@ -16,7 +17,6 @@ use tvis_core::store::{TargetData, TargetStatus};
 use tvis_core::units::{
     ByteBase, format_bytes, format_duration, format_percent, format_trend, format_value,
 };
-use tvis_core::{Target, TargetId};
 
 use super::chart::{self, Input, Plot, YScale};
 use super::view::*;
@@ -66,7 +66,13 @@ impl Ctx<'_, '_> {
 }
 
 fn scaled_points(series: &tvis_core::series::TimeSeries, from: f64, factor: f64) -> Vec<Point> {
-    series.since(from).map(|p| Point { t: p.t, v: p.v * factor }).collect()
+    series
+        .since(from)
+        .map(|p| Point {
+            t: p.t,
+            v: p.v * factor,
+        })
+        .collect()
 }
 
 /// Entry point.
@@ -150,7 +156,11 @@ fn watch_row(cx: &Ctx<'_, '_>, t: &TargetData, alerting: bool) -> WatchRowV {
         id: t.id().to_string(),
         title: t.title(),
         subtitle: if running {
-            format!("{} proc · {} thr", t.process_count(), t.thread_count().max(thread_metric(t)))
+            format!(
+                "{} proc · {} thr",
+                t.process_count(),
+                t.thread_count().max(thread_metric(t))
+            )
         } else {
             "waiting for process…".into()
         },
@@ -180,7 +190,13 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
     let base = cx.base();
     let window = cx.req.window_secs;
     let now = cx.view.now;
-    let ratio = |used: u64, total: u64| if total == 0 { 0.0 } else { used as f32 / total as f32 };
+    let ratio = |used: u64, total: u64| {
+        if total == 0 {
+            0.0
+        } else {
+            used as f32 / total as f32
+        }
+    };
 
     let spark = |series: &tvis_core::series::TimeSeries| {
         let pts: Vec<Point> = series.since(now - 120.0).collect();
@@ -211,9 +227,16 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
             )
         },
         swap_frac: ratio(s.swap_used, s.swap_total),
-        load: if have_load { format!("{:.2}", s.load_average[0]) } else { "n/a".into() },
+        load: if have_load {
+            format!("{:.2}", s.load_average[0])
+        } else {
+            "n/a".into()
+        },
         load_detail: if have_load {
-            format!("5 min {:.2} · 15 min {:.2}", s.load_average[1], s.load_average[2])
+            format!(
+                "5 min {:.2} · 15 min {:.2}",
+                s.load_average[1], s.load_average[2]
+            )
         } else {
             "not reported on this platform".into()
         },
@@ -254,12 +277,21 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
         Unit::Bytes,
         base,
         plot,
-        if s.mem_total > 0 { YScale::Fixed(s.mem_total as f64) } else { YScale::Auto },
+        if s.mem_total > 0 {
+            YScale::Fixed(s.mem_total as f64)
+        } else {
+            YScale::Auto
+        },
     );
     let _ = window;
 
     let groups = group_by_name(frame);
-    let watched = |name: &str| store.targets().iter().any(|t| t.target.id() == Target::Name(name.into()).id());
+    let watched = |name: &str| {
+        store
+            .targets()
+            .iter()
+            .any(|t| t.target.id() == Target::Name(name.into()).id())
+    };
     let top = |key: fn(&Group) -> f64, fmt: &dyn Fn(f64) -> String| {
         let mut v: Vec<(&String, &Group)> = groups.iter().collect();
         v.sort_by(|a, b| key(b.1).total_cmp(&key(a.1)).then_with(|| a.0.cmp(b.0)));
@@ -270,7 +302,11 @@ fn dashboard(cx: &Ctx<'_, '_>) -> DashboardV {
                 name: name.clone(),
                 value: fmt(key(g)),
                 frac: (key(g) / max) as f32,
-                count: if g.count > 1 { format!("×{}", g.count) } else { String::new() },
+                count: if g.count > 1 {
+                    format!("×{}", g.count)
+                } else {
+                    String::new()
+                },
                 key: name.clone(),
                 watched: watched(name),
             })
@@ -316,7 +352,10 @@ fn group_by_name(frame: &Frame) -> HashMap<String, Group> {
 
 fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
     let Some(frame) = cx.view.frame else {
-        return ProcessesV { rows: vec![], summary: "Waiting for the first sample…".into() };
+        return ProcessesV {
+            rows: vec![],
+            summary: "Waiting for the first sample…".into(),
+        };
     };
     let req = cx.req;
     let needle = req.proc_filter.trim().to_lowercase();
@@ -384,7 +423,11 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
             ProcSort::Pid if req.proc_group => a.count.cmp(&b.count),
             ProcSort::Pid => a.pid.cmp(&b.pid),
         };
-        let ord = if req.proc_ascending { ord } else { ord.reverse() };
+        let ord = if req.proc_ascending {
+            ord
+        } else {
+            ord.reverse()
+        };
         ord.then_with(|| a.pid.cmp(&b.pid))
     });
     rows.truncate(MAX_PROCESS_ROWS);
@@ -400,12 +443,20 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
             } else {
                 is_watched(Target::Name(r.name.clone()))
             },
-            pid: if req.proc_group { format!("×{}", r.count) } else { r.pid.to_string() },
+            pid: if req.proc_group {
+                format!("×{}", r.count)
+            } else {
+                r.pid.to_string()
+            },
             cpu: format_percent(r.cpu * f_cpu),
             cpu_frac: (r.cpu / max_cpu) as f32,
             mem: format_bytes(r.mem, cx.base()),
             mem_frac: (r.mem / max_mem) as f32,
-            threads: if r.threads > 0.0 { format!("{:.0}", r.threads) } else { "—".into() },
+            threads: if r.threads > 0.0 {
+                format!("{:.0}", r.threads)
+            } else {
+                "—".into()
+            },
             key: r.key,
             name: r.name,
             is_pid: r.is_pid,
@@ -416,7 +467,11 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
         rows: out,
         summary: format!(
             "{shown} of {total} {} · {} running in total",
-            if req.proc_group { "groups" } else { "processes" },
+            if req.proc_group {
+                "groups"
+            } else {
+                "processes"
+            },
             frame.system.process_count
         ),
     }
@@ -429,7 +484,8 @@ fn monitor(cx: &Ctx<'_, '_>, data: &TargetData) -> MonitorV {
     let req = cx.req;
     let running = data.status == TargetStatus::Running;
 
-    let available: Vec<&MetricDescriptor> = registry.iter().filter(|d| data.has_metric(d.id)).collect();
+    let available: Vec<&MetricDescriptor> =
+        registry.iter().filter(|d| data.has_metric(d.id)).collect();
     let selected = available
         .iter()
         .find(|d| d.id.as_str() == req.metric)
@@ -456,7 +512,10 @@ fn monitor(cx: &Ctx<'_, '_>, data: &TargetData) -> MonitorV {
         "No matching process right now — the watch stays armed and resumes automatically.".into()
     };
 
-    let cards = available.iter().map(|d| card(cx, data, d, selected)).collect();
+    let cards = available
+        .iter()
+        .map(|d| card(cx, data, d, selected))
+        .collect();
 
     let (chart, chart_title, stats) = match selected {
         Some(d) => {
@@ -535,7 +594,10 @@ fn card(
             let change = fit.slope * span;
             let noticeable = fit.r2 > 0.5 && change.abs() > 0.03 * mean;
             Some(if noticeable {
-                (format_trend(d.unit, fit.slope, cx.base()), if fit.slope > 0.0 { 1 } else { -1 })
+                (
+                    format_trend(d.unit, fit.slope, cx.base()),
+                    if fit.slope > 0.0 { 1 } else { -1 },
+                )
             } else {
                 ("steady".to_owned(), 0)
             })
@@ -563,7 +625,12 @@ fn card(
 }
 
 fn color_for_metric(cx: &Ctx<'_, '_>, id: MetricId) -> u32 {
-    let idx = cx.view.registry.iter().position(|d| d.id == id).unwrap_or(0);
+    let idx = cx
+        .view
+        .registry
+        .iter()
+        .position(|d| d.id == id)
+        .unwrap_or(0);
     SERIES_COLORS[idx % SERIES_COLORS.len()]
 }
 
@@ -590,7 +657,8 @@ fn main_chart(cx: &Ctx<'_, '_>, data: &TargetData, d: &MetricDescriptor) -> (Cha
                 .filter(|p| !p.is_thread())
                 .filter_map(|p| {
                     let pts = scaled_points(data.process_series(p.pid, d.id)?, from - plot.gap, f);
-                    let visible: Vec<f64> = pts.iter().filter(|q| q.t >= from).map(|q| q.v).collect();
+                    let visible: Vec<f64> =
+                        pts.iter().filter(|q| q.t >= from).map(|q| q.v).collect();
                     let mean = visible.iter().sum::<f64>() / visible.len().max(1) as f64;
                     Some((p, mean, pts))
                 })
@@ -646,13 +714,19 @@ fn main_chart(cx: &Ctx<'_, '_>, data: &TargetData, d: &MetricDescriptor) -> (Cha
 
 fn stats(cx: &Ctx<'_, '_>, data: &TargetData, d: &MetricDescriptor) -> Vec<(String, String)> {
     let f = cx.factor(d.id);
-    let Some(s) = data.summary(d.id, cx.req.window_secs).map(|s| scale_summary(s, f)) else {
+    let Some(s) = data
+        .summary(d.id, cx.req.window_secs)
+        .map(|s| scale_summary(s, f))
+    else {
         return Vec::new();
     };
     let current = data.current(d.id).map(|v| v * f);
     let fmt = |v: f64| cx.fmt(d.unit, v);
     vec![
-        ("Current".into(), current.map(fmt).unwrap_or_else(|| "—".into())),
+        (
+            "Current".into(),
+            current.map(fmt).unwrap_or_else(|| "—".into()),
+        ),
         ("Min".into(), fmt(s.min)),
         ("Average".into(), fmt(s.mean)),
         ("Median".into(), fmt(s.p50)),
@@ -672,7 +746,10 @@ fn insight(cx: &Ctx<'_, '_>, i: &Insight) -> Option<InsightV> {
         Severity::Critical => 2,
     };
     let (title, detail) = match i.kind {
-        InsightKind::Growth { per_sec, confidence } => {
+        InsightKind::Growth {
+            per_sec,
+            confidence,
+        } => {
             let title = match i.metric {
                 builtin::MEM_RSS => "Possible memory leak".to_owned(),
                 builtin::OPEN_FILES => "Open files keep growing — possible handle leak".to_owned(),
@@ -690,7 +767,10 @@ fn insight(cx: &Ctx<'_, '_>, i: &Insight) -> Option<InsightV> {
         }
         InsightKind::Saturation { mean } => (
             "CPU saturated".to_owned(),
-            format!("averaging {} of a core over the recent window", format_percent(mean)),
+            format!(
+                "averaging {} of a core over the recent window",
+                format_percent(mean)
+            ),
         ),
         InsightKind::Spike { peak, typical } => (
             format!("{} spike", d.name),
@@ -701,22 +781,36 @@ fn insight(cx: &Ctx<'_, '_>, i: &Insight) -> Option<InsightV> {
             ),
         ),
     };
-    Some(InsightV { severity, title, detail })
+    Some(InsightV {
+        severity,
+        title,
+        detail,
+    })
 }
 
 fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>) -> Vec<TreeRowV> {
     let req = cx.req;
     let f_cpu = cx.factor(builtin::CPU);
     let members = &data.members;
-    let index: HashMap<u32, usize> = members.iter().enumerate().map(|(i, p)| (p.pid, i)).collect();
+    let index: HashMap<u32, usize> = members
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.pid, i))
+        .collect();
     let visible = |p: &ProcessSample| req.show_threads || !p.is_thread();
 
     // Order: hierarchy (DFS, busiest child first) or flat by the selected metric.
     let sort_metric = selected.map_or(builtin::CPU, |d| d.id);
     let mut order: Vec<(usize, i32)> = Vec::with_capacity(members.len());
     if req.tree_flat {
-        let mut idx: Vec<usize> = (0..members.len()).filter(|&i| visible(&members[i])).collect();
-        idx.sort_by(|&a, &b| members[b].value(sort_metric).total_cmp(&members[a].value(sort_metric)));
+        let mut idx: Vec<usize> = (0..members.len())
+            .filter(|&i| visible(&members[i]))
+            .collect();
+        idx.sort_by(|&a, &b| {
+            members[b]
+                .value(sort_metric)
+                .total_cmp(&members[a].value(sort_metric))
+        });
         order.extend(idx.into_iter().map(|i| (i, 0)));
     } else {
         let mut children: HashMap<usize, Vec<usize>> = HashMap::new();
@@ -728,7 +822,11 @@ fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>
             }
         }
         let by_cpu = |v: &mut Vec<usize>| {
-            v.sort_by(|&a, &b| members[b].value(builtin::CPU).total_cmp(&members[a].value(builtin::CPU)))
+            v.sort_by(|&a, &b| {
+                members[b]
+                    .value(builtin::CPU)
+                    .total_cmp(&members[a].value(builtin::CPU))
+            })
         };
         by_cpu(&mut roots);
         let mut stack: Vec<(usize, i32)> = roots.into_iter().rev().map(|i| (i, 0)).collect();
@@ -743,8 +841,14 @@ fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>
         }
     }
 
-    let max_cpu = order.iter().map(|&(i, _)| members[i].value(builtin::CPU)).fold(f64::EPSILON, f64::max);
-    let max_mem = order.iter().map(|&(i, _)| members[i].value(builtin::MEM_RSS)).fold(f64::EPSILON, f64::max);
+    let max_cpu = order
+        .iter()
+        .map(|&(i, _)| members[i].value(builtin::CPU))
+        .fold(f64::EPSILON, f64::max);
+    let max_mem = order
+        .iter()
+        .map(|&(i, _)| members[i].value(builtin::MEM_RSS))
+        .fold(f64::EPSILON, f64::max);
     let spark_metric = selected
         .filter(|d| d.per_process_history)
         .map_or(builtin::CPU, |d| d.id);
@@ -771,9 +875,13 @@ fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>
                 is_thread: p.is_thread(),
                 cpu: format_percent(p.value(builtin::CPU) * f_cpu),
                 cpu_frac: (p.value(builtin::CPU) / max_cpu) as f32,
-                mem: p.get(builtin::MEM_RSS).map_or_else(|| "—".into(), |v| format_bytes(v, base)),
+                mem: p
+                    .get(builtin::MEM_RSS)
+                    .map_or_else(|| "—".into(), |v| format_bytes(v, base)),
                 mem_frac: (p.value(builtin::MEM_RSS) / max_mem) as f32,
-                threads: p.get(builtin::THREADS).map_or_else(|| "—".into(), |v| format!("{v:.0}")),
+                threads: p
+                    .get(builtin::THREADS)
+                    .map_or_else(|| "—".into(), |v| format!("{v:.0}")),
                 io: if has_io {
                     format!("{} / {}", rate(builtin::IO_READ), rate(builtin::IO_WRITE))
                 } else {
@@ -783,11 +891,6 @@ fn tree(cx: &Ctx<'_, '_>, data: &TargetData, selected: Option<&MetricDescriptor>
             }
         })
         .collect()
-}
-
-/// Resolves a textual id from the UI to a watched target id.
-pub fn target_id(s: &str) -> TargetId {
-    TargetId::from(s)
 }
 
 #[cfg(test)]
@@ -817,7 +920,10 @@ mod tests {
         let mut src = SyntheticSource::new(120);
         let mut registry = MetricRegistry::new();
         registry.extend(src.descriptors());
-        let mut store = Store::new(Limits { retention_secs: 3600.0, interval_secs: 1.0 });
+        let mut store = Store::new(Limits {
+            retention_secs: 3600.0,
+            interval_secs: 1.0,
+        });
         for t in targets {
             store.watch(Target::Name((*t).into()));
         }
@@ -832,7 +938,10 @@ mod tests {
             store,
             registry,
             frame,
-            config: EngineConfig { interval: Duration::from_secs(1), ..Default::default() },
+            config: EngineConfig {
+                interval: Duration::from_secs(1),
+                ..Default::default()
+            },
             alerts: AlertEngine::default(),
             now: 1.0,
         }
@@ -882,7 +991,11 @@ mod tests {
         assert!(m.cards.iter().any(|c| c.id == "mem.rss"));
         assert_eq!(m.cards.iter().filter(|c| c.selected).count(), 1);
         assert_eq!(m.stats.len(), 8);
-        assert!(m.insights.iter().any(|i| i.title.contains("memory leak")), "{:?}", m.insights);
+        assert!(
+            m.insights.iter().any(|i| i.title.contains("memory leak")),
+            "{:?}",
+            m.insights
+        );
         // hierarchy: api-server first, workers nested below
         assert_eq!(m.tree[0].name, "api-server");
         assert_eq!(m.tree[0].depth, 0);
@@ -929,7 +1042,10 @@ mod tests {
         r.proc_sort = ProcSort::Name;
         r.proc_ascending = true;
         r.proc_filter = "n".into();
-        let names: Vec<String> = rows(&r).into_iter().map(|p| p.name.to_lowercase()).collect();
+        let names: Vec<String> = rows(&r)
+            .into_iter()
+            .map(|p| p.name.to_lowercase())
+            .collect();
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);

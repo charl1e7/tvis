@@ -5,9 +5,9 @@
 
 use std::sync::{Arc, Mutex};
 
+use tvis_core::TargetId;
 use tvis_core::metric::Unit;
 use tvis_core::units::ByteBase;
-use tvis_core::TargetId;
 
 /// Series colours; keep in sync with `Theme.series` in `ui/theme.slint`.
 pub const SERIES_COLORS: [u32; 8] = [
@@ -156,19 +156,6 @@ pub struct ChartV {
     pub unit: Unit,
     pub base: ByteBase,
     pub window_secs: f64,
-}
-
-impl ChartV {
-    pub fn empty() -> Self {
-        Self {
-            lines: Vec::new(),
-            y_ticks: Vec::new(),
-            x_ticks: Vec::new(),
-            unit: Unit::Count,
-            base: ByteBase::Binary,
-            window_secs: 60.0,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default)]

@@ -184,7 +184,13 @@ impl SystemHistory {
     }
 
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut TimeSeries> {
-        [&mut self.cpu, &mut self.memory, &mut self.swap, &mut self.load].into_iter()
+        [
+            &mut self.cpu,
+            &mut self.memory,
+            &mut self.swap,
+            &mut self.load,
+        ]
+        .into_iter()
     }
 }
 
@@ -294,7 +300,10 @@ mod tests {
     }
 
     fn limits() -> Limits {
-        Limits { retention_secs: 600.0, interval_secs: 1.0 }
+        Limits {
+            retention_secs: 600.0,
+            interval_secs: 1.0,
+        }
     }
 
     #[test]
@@ -342,7 +351,13 @@ mod tests {
         store.watch(Target::Name("app".into()));
         let reg = registry();
         store.ingest(
-            &frame(1.0, &[(1, None, "app", 1.0, 1.0, false), (2, Some(1), "c", 1.0, 1.0, false)]),
+            &frame(
+                1.0,
+                &[
+                    (1, None, "app", 1.0, 1.0, false),
+                    (2, Some(1), "c", 1.0, 1.0, false),
+                ],
+            ),
             &reg,
         );
         store.ingest(&frame(2.0, &[(1, None, "app", 1.0, 1.0, false)]), &reg);
@@ -355,9 +370,19 @@ mod tests {
         let mut store = Store::new(limits());
         let t = Target::Name("app".into());
         store.watch(t.clone());
-        store.ingest(&frame(1.0, &[(1, None, "app", 1.0, 1.0, false)]), &registry());
+        store.ingest(
+            &frame(1.0, &[(1, None, "app", 1.0, 1.0, false)]),
+            &registry(),
+        );
         store.target_mut(&t.id()).unwrap().clear();
-        assert!(store.target(&t.id()).unwrap().series(builtin::CPU).unwrap().is_empty());
+        assert!(
+            store
+                .target(&t.id())
+                .unwrap()
+                .series(builtin::CPU)
+                .unwrap()
+                .is_empty()
+        );
         assert!(store.unwatch(&t.id()));
         assert!(!store.unwatch(&t.id()));
     }

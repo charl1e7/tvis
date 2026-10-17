@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
+use tvis_core::Target;
 use tvis_core::alert::AlertRule;
 use tvis_core::units::ByteBase;
-use tvis_core::Target;
 
 /// Choices offered by the UI; the indices are what the views persist.
 pub const INTERVALS_MS: [u64; 6] = [250, 500, 1000, 2000, 5000, 10_000];
@@ -97,7 +97,10 @@ impl Settings {
     }
 
     pub fn retention_index(&self) -> usize {
-        nearest_index(&RETENTIONS_SECS.map(|v| v as f64), self.retention_secs as f64)
+        nearest_index(
+            &RETENTIONS_SECS.map(|v| v as f64),
+            self.retention_secs as f64,
+        )
     }
 
     pub fn window_index(&self) -> usize {
@@ -130,7 +133,9 @@ impl SettingsStore {
     pub fn default_location() -> Self {
         let dir = std::env::var_os("TVIS_CONFIG_DIR")
             .map(PathBuf::from)
-            .or_else(|| ProjectDirs::from("dev", "charl1e7", "tvis").map(|d| d.config_dir().to_path_buf()))
+            .or_else(|| {
+                ProjectDirs::from("dev", "charl1e7", "tvis").map(|d| d.config_dir().to_path_buf())
+            })
             .unwrap_or_else(|| PathBuf::from("."));
         Self { dir }
     }
@@ -231,7 +236,7 @@ mod tests {
     #[test]
     fn sanitizing_snaps_values_and_drops_pid_targets() {
         let s = Settings {
-            interval_ms: 777,
+            interval_ms: 600,
             accent: 99,
             window_secs: 290.0,
             watchlist: vec![Target::Pid(5), Target::Name("x".into())],

@@ -1,45 +1,100 @@
-# TVIS <img src="assets/icon_ios_touch_192.png" width="26" height="26" style="vertical-align: middle;">
-
 <div align="center">
 
+# TVIS
+
+**A professional process profiler for developers.**
+See exactly how much CPU, memory, threads, disk I/O and file handles your application uses — live, over time, with automatic leak detection.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE-MIT)
-[![Built with Rust](https://img.shields.io/badge/Built_with-Rust-orange.svg)](https://www.rust-lang.org/)
-[![Powered by egui](https://img.shields.io/badge/Powered_by-egui-purple.svg)](https://www.egui.rs/)
+[![Built with Rust](https://img.shields.io/badge/Built_with-Rust_2024-orange.svg)](https://www.rust-lang.org/)
+[![UI: Slint](https://img.shields.io/badge/UI-Slint-2379F4.svg)](https://slint.dev)
+[![Platforms](https://img.shields.io/badge/Linux_·_Windows_·_macOS-555.svg)](#installation)
 
-A process monitoring tool that helps you track and analyze specific processes in real-time.
-
-![Preview](gitassets/screen1.png)
+![Monitor](gitassets/monitor.png)
 
 </div>
 
-## ✨ Features
+## Features
 
-- **Real-time Monitoring** - Track CPU and memory usage with live-updating graphs
-- **Customizable UI** - Adjust update intervals, history length, and visual settings
-- **Cross-platform** - Works on Windows, Linux, and macOS
+- **Per-application profiles** — watch a process by name or PID; its whole process
+  tree is tracked and aggregated, and children that appear later are picked up automatically.
+- **Seven metrics** — CPU, resident memory, virtual memory, threads, disk read/write rate, open files.
+- **Real statistics** — current, min, average, median, P95, P99, max and standard
+  deviation over 30 s – 1 h windows, plus a trend per minute for every metric.
+- **Automatic insights** — steady growth of memory, threads or handles (leak
+  detection by linear regression), CPU saturation and spikes.
+- **Three chart modes** — aggregate, per process (top 6 by usage) and a
+  compare view that overlays every watched target; hover for exact values.
+- **Process tree** with per-process sparklines, hierarchical or flat, optional thread rows.
+- **Alerts** — "CPU above 90 % for 10 s", "memory above 2 GiB"; firing/resolved
+  log and toasts.
+- **Export** history as CSV or JSON, or record headlessly from a script:
+  `tvis record my-service -d 120 -o run.csv`.
+- **System dashboard** — CPU, memory, swap, load, per-core utilisation, top processes.
+- **Customisable** — dark/light/system theme, accent colour, sampling interval
+  (250 ms – 10 s), retention (5 min – 24 h), smoothing, line weight, grid, area fill,
+  binary/decimal units, CPU relative to one core or the whole machine.
+- **Fast** — Slint is retained-mode; the interface is not re-laid-out for every
+  chart update, and all number crunching happens off the UI thread.
+- **Cross-platform** — Linux (X11 and Wayland), Windows and macOS.
 
-## 🚀 Getting Started
+<div align="center">
 
-### Installation
+![Dashboard](gitassets/dashboard.png)
 
-#### Option 1: Download Binary 
-You can download the pre-built binary for your platform from the [Releases](https://github.com/charl1e7/tvis/releases) page.
+</div>
 
+## Installation
 
-#### Option 2: Build from Source
-If you prefer to build from source or need a specific configuration:
+### Download a binary
+
+Pre-built binaries for Linux (x86_64, aarch64), Windows and macOS (Intel, Apple Silicon)
+are attached to every [release](https://github.com/charl1e7/tvis/releases).
+
+### Build from source
+
+Requires Rust 1.95 or newer.
 
 ```bash
-#### Option 2: Install via Cargo  
-cargo install --git https://github.com/charl1e7/tvis
-#### After installation, you can run the application using:
-tvis
+cargo install --git https://github.com/charl1e7/tvis tvis
 ```
 
-## 🤝 Contributing
+On Linux you need the usual windowing libraries at build time, e.g. on Debian/Ubuntu:
 
-Contributions are welcome! 
+```bash
+sudo apt install libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libwayland-dev
+```
 
-## 📝 License
+## Usage
 
-This project is licensed under the MIT License - see the [LICENSE-MIT](LICENSE-MIT) file for details.
+```bash
+tvis                       # open the app
+tvis -w java -w postgres   # start watching processes
+tvis --demo                # explore with a synthetic machine
+tvis record nginx -d 60 -o nginx.json   # headless recording (csv or json)
+```
+
+Settings, the watchlist and alert rules are stored as `settings.toml` in your
+platform configuration directory (override with `--config-dir` or `TVIS_CONFIG_DIR`).
+
+## Architecture
+
+TVIS is a workspace of two crates: `tvis-core` (engine, no UI) and `tvis`
+(Slint application). New metrics, data sources, insights and pages plug in
+without touching the core. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Development
+
+```bash
+cargo test --workspace
+cargo clippy --workspace --all-targets
+cargo run -- --demo
+```
+
+## Credits
+
+Icons are from [Feather](https://feathericons.com) (MIT).
+
+## License
+
+MIT — see [LICENSE-MIT](LICENSE-MIT).

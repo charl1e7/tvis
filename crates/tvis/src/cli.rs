@@ -44,6 +44,9 @@ pub struct DevOptions {
     /// Page to show for `--snapshot` (0 dashboard … 4 settings)
     #[arg(long, value_name = "N", default_value_t = 0, hide = true)]
     pub snapshot_page: i32,
+    /// Window height in logical pixels for `--snapshot` (0 keeps the default)
+    #[arg(long, value_name = "PX", default_value_t = 0, hide = true)]
+    pub snapshot_height: u32,
     /// Milliseconds to wait before taking the snapshot
     #[arg(long, value_name = "MS", default_value_t = 2500, hide = true)]
     pub snapshot_delay: u64,
@@ -80,12 +83,11 @@ pub enum Format {
 
 impl RecordArgs {
     pub fn format(&self) -> Format {
-        self.format.unwrap_or_else(|| {
-            match self.output.extension().and_then(|e| e.to_str()) {
+        self.format
+            .unwrap_or_else(|| match self.output.extension().and_then(|e| e.to_str()) {
                 Some("json") => Format::Json,
                 _ => Format::Csv,
-            }
-        })
+            })
     }
 }
 
@@ -99,8 +101,13 @@ mod tests {
         assert_eq!(cli.watch, ["java", "42"]);
         assert!(cli.demo && cli.command.is_none());
 
-        let cli = Cli::try_parse_from(["tvis", "record", "nginx", "-d", "5", "-o", "x.json", "--demo"]).unwrap();
-        let Some(Command::Record(r)) = cli.command else { panic!() };
+        let cli = Cli::try_parse_from([
+            "tvis", "record", "nginx", "-d", "5", "-o", "x.json", "--demo",
+        ])
+        .unwrap();
+        let Some(Command::Record(r)) = cli.command else {
+            panic!()
+        };
         assert_eq!((r.duration, r.format()), (5, Format::Json));
         assert!(cli.demo);
     }

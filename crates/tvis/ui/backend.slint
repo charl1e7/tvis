@@ -7,7 +7,7 @@ import {
 // reacts to callbacks; views never talk to the engine directly.
 export global Backend {
     // ── shell ────────────────────────────────────────────────
-    in property <int> page: 0;   // 0 dashboard · 1 monitor · 2 processes · 3 alerts · 4 settings
+    in-out property <int> page: 0;   // 0 dashboard · 1 monitor · 2 processes · 3 alerts · 4 settings
     callback page-changed(int);
     public function go(p: int) {
         root.page = p;

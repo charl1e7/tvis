@@ -5,14 +5,14 @@
 //!   that are actually being watched – the right place for expensive or
 //!   platform specific measurements.
 
-mod sysinfo_source;
 mod synthetic;
+mod sysinfo_source;
 
 use crate::frame::{Frame, Pid, SystemInfo};
 use crate::metric::MetricDescriptor;
 
-pub use sysinfo_source::{OpenFilesProbe, SysinfoSource};
 pub use synthetic::SyntheticSource;
+pub use sysinfo_source::{OpenFilesProbe, SysinfoSource};
 
 pub trait ProcessSource: Send {
     fn info(&self) -> SystemInfo;
