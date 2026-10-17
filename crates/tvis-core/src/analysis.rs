@@ -105,7 +105,7 @@ pub fn analyze(data: &TargetData, registry: &MetricRegistry, window_secs: f64) -
             });
         }
     }
-    out.sort_by(|a, b| b.severity.cmp(&a.severity));
+    out.sort_by_key(|i| std::cmp::Reverse(i.severity));
     out
 }
 

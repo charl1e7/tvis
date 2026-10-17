@@ -281,7 +281,9 @@ mod tests {
         r
     }
 
-    fn frame(t: f64, rows: &[(Pid, Option<Pid>, &str, f64, f64, bool)]) -> Frame {
+    type Row<'a> = (Pid, Option<Pid>, &'a str, f64, f64, bool);
+
+    fn frame(t: f64, rows: &[Row<'_>]) -> Frame {
         let procs = rows
             .iter()
             .map(|&(pid, parent, name, cpu, rss, thread)| {

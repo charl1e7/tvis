@@ -776,9 +776,8 @@ impl Ui {
             }
         });
         on!(on_watch_text, |ui, text| {
-            match Target::parse(text.as_str()) {
-                Some(t) => ui.watch(t),
-                None => {}
+            if let Some(t) = Target::parse(text.as_str()) {
+                ui.watch(t)
             }
         });
 

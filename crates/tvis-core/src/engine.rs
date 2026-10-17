@@ -385,9 +385,11 @@ mod tests {
     use crate::metric::builtin;
     use crate::source::SyntheticSource;
 
+    type UpdateLog = Vec<(UpdateReason, usize, Option<f64>)>;
+
     #[derive(Default, Clone)]
     struct Probe1 {
-        updates: Arc<Mutex<Vec<(UpdateReason, usize, Option<f64>)>>>,
+        updates: Arc<Mutex<UpdateLog>>,
         events: Arc<Mutex<Vec<String>>>,
     }
 

@@ -17,7 +17,7 @@ categories = ["development-tools::profiling", "visualization"]
 
 [profile.release]
 codegen-units = 1
-lto = "fat"
+lto = "thin"
 strip = true
 panic = "abort"
 

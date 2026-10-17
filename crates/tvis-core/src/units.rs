@@ -44,9 +44,7 @@ pub fn format_bytes(value: f64, base: ByteBase) -> String {
     let i = scale_index(value, base);
     let scaled = value / base.step().powi(i as i32);
     let suffix = base.suffixes()[i];
-    if i == 0 {
-        format!("{scaled:.0} {suffix}")
-    } else if scaled.abs() >= 100.0 {
+    if i == 0 || scaled.abs() >= 100.0 {
         format!("{scaled:.0} {suffix}")
     } else if scaled.abs() >= 10.0 {
         format!("{scaled:.1} {suffix}")
