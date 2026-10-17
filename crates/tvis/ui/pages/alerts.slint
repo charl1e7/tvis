@@ -1,0 +1,167 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Backend } from "../backend.slint";
+import { Card, Label, Caption, Btn, Icon, Field, Toggle, Select, Badge, StatusDot } from "../components/basic.slint";
+
+export component AlertsPage inherits Rectangle {
+    property <int> target-idx: 0;
+    property <int> metric-idx: 0;
+    property <int> comparison: 0;
+    property <string> unit-hint: Backend.alert-metrics.length > root.metric-idx ? Backend.alert-metrics[root.metric-idx].hint : "";
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+        Text { text: "Alerts"; font-size: Theme.fs-h1; font-weight: 700; color: Theme.text; }
+
+        HorizontalLayout {
+            spacing: 16px;
+            // rules + form
+            VerticalLayout {
+                spacing: 16px;
+                horizontal-stretch: 3;
+
+                Card {
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 12px;
+                        Caption { text: "NEW RULE"; }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            name := Field { placeholder: "Rule name (optional)"; horizontal-stretch: 1; }
+                            Select {
+                                items: Backend.alert-target-labels;
+                                current <=> root.target-idx;
+                                min-width: 170px;
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 10px;
+                            Select {
+                                items: Backend.alert-metric-labels;
+                                current <=> root.metric-idx;
+                                min-width: 170px;
+                            }
+                            Select {
+                                items: ["is above", "is below"];
+                                current <=> root.comparison;
+                                min-width: 110px;
+                            }
+                            threshold := Field {
+                                placeholder: "threshold";
+                                width: 110px;
+                                input-type: InputType.decimal;
+                            }
+                            Label { text: root.unit-hint; color: Theme.text-dim; vertical-alignment: center; min-width: 50px; }
+                            Label { text: "for"; color: Theme.text-dim; vertical-alignment: center; }
+                            duration := Field {
+                                text: "10";
+                                width: 64px;
+                                input-type: InputType.decimal;
+                            }
+                            Label { text: "s"; color: Theme.text-dim; vertical-alignment: center; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Btn {
+                                kind: 0;
+                                text: "Add rule";
+                                icon: @image-url("../icons/plus.svg");
+                                clicked => {
+                                    Backend.add-alert(name.text, root.target-idx, root.metric-idx, root.comparison, threshold.text.to-float(), duration.text.to-float());
+                                    name.text = "";
+                                    threshold.text = "";
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Card {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: 16px;
+                        spacing: 6px;
+                        Caption { text: "RULES · \{Backend.rules.length}"; height: 20px; }
+                        if Backend.rules.length == 0: Text {
+                            text: "No rules yet. Rules fire when a metric stays above or below a threshold for a given time.";
+                            color: Theme.text-faint;
+                            font-size: Theme.fs-body;
+                            wrap: word-wrap;
+                        }
+                        ListView {
+                            for rule in Backend.rules: Rectangle {
+                                height: 54px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    StatusDot { on: rule.enabled; tint: rule.firing ? Theme.bad : Theme.good; y: 23px; }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        horizontal-stretch: 1;
+                                        spacing: 2px;
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            alignment: start;
+                                            Label { text: rule.name; font-weight: 700; }
+                                            if rule.firing: Badge { text: "FIRING"; tint: Theme.bad; }
+                                        }
+                                        Label { text: rule.summary + " · " + rule.scope; color: Theme.text-dim; font-size: Theme.fs-small; }
+                                    }
+                                    Toggle {
+                                        checked: rule.enabled;
+                                        toggled(c) => { Backend.toggle-alert(rule.id, c); }
+                                        y: 16px;
+                                    }
+                                    Btn {
+                                        kind: 3;
+                                        icon: @image-url("../icons/trash.svg");
+                                        y: 11px;
+                                        clicked => { Backend.remove-alert(rule.id); }
+                                    }
+                                }
+                                Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border-soft; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // log
+            Card {
+                horizontal-stretch: 2;
+                min-width: 300px;
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        Caption { text: "EVENT LOG"; horizontal-stretch: 1; vertical-alignment: center; }
+                        Btn { kind: 2; text: "Clear"; height: 24px; clicked => { Backend.clear-alert-log(); } }
+                    }
+                    if Backend.alert-log.length == 0: Text {
+                        text: "Nothing has fired.";
+                        color: Theme.text-faint;
+                        font-size: Theme.fs-body;
+                    }
+                    ListView {
+                        for entry in Backend.alert-log: Rectangle {
+                            height: 48px;
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Icon {
+                                    source: entry.kind == 1 ? @image-url("../icons/alert.svg") : entry.kind == 0 ? @image-url("../icons/check.svg") : @image-url("../icons/info.svg");
+                                    color: entry.kind == 1 ? Theme.bad : entry.kind == 0 ? Theme.good : Theme.accent;
+                                    size: 16px;
+                                    y: 6px;
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    Label { text: entry.text; font-size: Theme.fs-small; wrap: word-wrap; }
+                                    Label { text: entry.time; color: Theme.text-faint; font-size: Theme.fs-caption; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

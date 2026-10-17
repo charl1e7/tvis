@@ -1,0 +1,164 @@
+import { Theme } from "../theme.slint";
+import { ChartData, HoverItem } from "../types.slint";
+
+// Retained-mode line chart. Rust hands over ready-made path commands in a
+// 1000x1000 box; only the Path elements whose strings changed get redrawn.
+export component LineChart inherits Rectangle {
+    in property <ChartData> data;
+    in property <bool> fill: true;
+    in property <bool> grid: true;
+    in property <length> line-width: 1.6px;
+    in property <float> hover-frac: -1;
+    in property <string> hover-time;
+    in property <[HoverItem]> hover-items;
+    callback hovered(float);
+    callback left();
+
+    property <length> left-pad: 58px;
+    property <length> bottom-pad: 24px;
+    property <length> top-pad: 8px;
+    property <length> right-pad: 10px;
+
+    Rectangle {
+        x: root.left-pad;
+        y: root.top-pad;
+        width: root.width - root.left-pad - root.right-pad;
+        height: root.height - root.top-pad - root.bottom-pad;
+
+        // grid + y labels
+        for tick in root.data.y-ticks: Rectangle {
+            y: parent.height * (1 - tick.frac) - 0.5px;
+            height: 1px;
+            width: parent.width;
+            background: root.grid || tick.frac == 0 ? (tick.frac == 0 ? Theme.border : Theme.grid) : transparent;
+            Text {
+                x: -root.left-pad;
+                width: root.left-pad - 10px;
+                y: -6px;
+                height: 12px;
+                text: tick.label;
+                font-size: Theme.fs-caption;
+                color: Theme.text-faint;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+        }
+        for tick in root.data.x-ticks: Rectangle {
+            x: parent.width * tick.frac - 0.5px;
+            width: 1px;
+            height: parent.height;
+            background: root.grid ? Theme.grid.with-alpha(0.55) : transparent;
+            Text {
+                x: tick.frac > 0.97 ? -self.width + 0.5px : (tick.frac < 0.03 ? 0px : -self.width / 2);
+                y: parent.height + 6px;
+                width: 64px;
+                text: tick.label;
+                font-size: Theme.fs-caption;
+                color: Theme.text-faint;
+                horizontal-alignment: tick.frac > 0.97 ? TextHorizontalAlignment.right : (tick.frac < 0.03 ? TextHorizontalAlignment.left : TextHorizontalAlignment.center);
+            }
+        }
+
+        // series
+        for line in root.data.lines: Rectangle {
+            if root.fill && line.fill != "": Path {
+                width: parent.width;
+                height: parent.height;
+                viewbox-width: 1000;
+                viewbox-height: 1000;
+                fit: ImageFit.fill;
+                commands: line.fill;
+                fill: @linear-gradient(180deg, line.color.with-alpha(root.data.lines.length > 1 ? 0.16 : 0.30) 0%, line.color.with-alpha(0.0) 100%);
+                stroke: transparent;
+            }
+            if line.stroke != "": Path {
+                width: parent.width;
+                height: parent.height;
+                viewbox-width: 1000;
+                viewbox-height: 1000;
+                fit: ImageFit.fill;
+                commands: line.stroke;
+                stroke: line.color;
+                stroke-width: root.line-width;
+                stroke-line-cap: round;
+                stroke-line-join: round;
+                fill: transparent;
+            }
+        }
+
+        // crosshair
+        if root.hover-frac >= 0: Rectangle {
+            x: parent.width * root.hover-frac - 0.5px;
+            width: 1px;
+            height: parent.height;
+            background: Theme.text-faint.with-alpha(0.6);
+        }
+
+        touch := TouchArea {
+            mouse-cursor: MouseCursor.crosshair;
+            moved => {
+                if self.has-hover { root.hovered(Math.max(0.0, Math.min(1.0, self.mouse-x / self.width))); }
+            }
+            changed has-hover => { if !self.has-hover { root.left(); } }
+        }
+
+        // tooltip
+        if root.hover-frac >= 0 && root.hover-items.length > 0: Rectangle {
+            property <length> w: 190px;
+            width: w;
+            height: 26px + root.hover-items.length * 18px;
+            x: root.hover-frac < 0.6 ? Math.min(parent.width - w, parent.width * root.hover-frac + 14px) : Math.max(0px, parent.width * root.hover-frac - w - 14px);
+            y: 6px;
+            background: Theme.surface;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Theme.border;
+            drop-shadow-blur: 14px;
+            drop-shadow-color: Theme.shadow;
+            drop-shadow-offset-y: 4px;
+            VerticalLayout {
+                padding: 8px;
+                spacing: 2px;
+                Text {
+                    text: root.hover-time;
+                    color: Theme.text-faint;
+                    font-size: Theme.fs-caption;
+                    height: 16px;
+                }
+                for item in root.hover-items: HorizontalLayout {
+                    height: 16px;
+                    spacing: 6px;
+                    Rectangle {
+                        width: 8px;
+                        height: 8px;
+                        y: 4px;
+                        border-radius: 4px;
+                        background: item.color;
+                    }
+                    Text {
+                        text: item.name;
+                        color: Theme.text-dim;
+                        font-size: Theme.fs-small;
+                        overflow: elide;
+                        horizontal-stretch: 1;
+                    }
+                    Text {
+                        text: item.value;
+                        color: Theme.text;
+                        font-size: Theme.fs-small;
+                        font-weight: 700;
+                        horizontal-alignment: right;
+                    }
+                }
+            }
+        }
+    }
+
+    if root.data.lines.length == 0: Text {
+        text: root.data.empty-text;
+        color: Theme.text-faint;
+        font-size: Theme.fs-body;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

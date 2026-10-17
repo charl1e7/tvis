@@ -1,67 +1,32 @@
-[package]
-name = "tvis"
-version = "0.1.0"
-authors = ["charl1e7 <>"]
-edition = "2021"
-include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+[workspace]
+resolver = "3"
+members = ["crates/tvis-core", "crates/tvis"]
+default-members = ["crates/tvis"]
 
-[package.metadata.docs.rs]
-all-features = true
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "wasm32-unknown-unknown",
-    "x86_64-pc-windows-msvc",
-    "x86_64-apple-darwin",
-    "aarch64-linux-android",
-]
-
-[dependencies]
-egui = "0.30"
-eframe = { version = "0.30", default-features = false, features = [
-    #"accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
-    "default_fonts", # Embed the default egui fonts.
-    "wgpu",          # Use the glow rendering backend. Alternative: "wgpu".
-    "persistence",   # Enable restoring app state when restarting the app.
-    "wayland",       # To support Linux (and CI)
-    "x11",           # To support Linux (and CI)
-
-] }
-egui_plot = "0.30"
-log = "0.4"
-sysinfo = { version = "0.33", default-features = false, features = [
-    # "component",
-    # "disk",
-    # "network",
-    "system",
-    # "user",
-    # "multithread"
-] }
-serde = { version = "1", features = ["derive"] }
-
-# native:
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "0.11"
-
-# web:
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = "0.4"
-web-sys = "0.3"              # to access the DOM (to hide the loading text)
+[workspace.package]
+version = "2.0.0"
+edition = "2024"
+rust-version = "1.95"
+authors = ["charl1e7"]
+license = "MIT"
+repository = "https://github.com/charl1e7/tvis"
+homepage = "https://github.com/charl1e7/tvis"
+readme = "README.md"
+keywords = ["process", "monitor", "profiler", "metrics", "gui"]
+categories = ["development-tools::profiling", "visualization"]
 
 [profile.release]
 codegen-units = 1
-lto = true
+lto = "thin"
+strip = true
+panic = "abort"
 
-# # Optimize all dependencies even in debug builds:
-# [profile.dev.package."*"]
-# opt-level = 2
+[profile.dev.package."*"]
+opt-level = 2
 
+[workspace.lints.rust]
+unsafe_code = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
 
-[patch.crates-io]
-
-# If you want to use the bleeding edge version of egui and eframe:
-# egui = { git = "https://github.com/emilk/egui", branch = "master" }
-# eframe = { git = "https://github.com/emilk/egui", branch = "master" }
-
-# If you fork https://github.com/emilk/egui you can test with:
-# egui = { path = "../egui/crates/egui" }
-# eframe = { path = "../egui/crates/eframe" }
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

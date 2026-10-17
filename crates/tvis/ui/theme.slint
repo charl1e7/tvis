@@ -1,0 +1,42 @@
+import { Palette } from "std-widgets.slint";
+
+export global Theme {
+    // 0 = follow system, 1 = dark, 2 = light
+    in-out property <int> mode: 0;
+    in-out property <color> accent: #6d7cff;
+
+    out property <bool> dark: mode == 1 || (mode == 0 && Palette.color-scheme != ColorScheme.light);
+
+    out property <color> bg: dark ? #0a0e15 : #eef1f6;
+    out property <color> sidebar: dark ? #0d121b : #ffffff;
+    out property <color> surface: dark ? #121926 : #ffffff;
+    out property <color> surface-hi: dark ? #19223a : #f1f4fa;
+    out property <color> surface-hover: dark ? #1d2740 : #e8edf6;
+    out property <color> border: dark ? #232d44 : #dce2ee;
+    out property <color> border-soft: dark ? #1a2236 : #e8ecf4;
+    out property <color> text: dark ? #e8ecf5 : #0f172a;
+    out property <color> text-dim: dark ? #9aa6bd : #526079;
+    out property <color> text-faint: dark ? #66728b : #8794ab;
+    out property <color> good: dark ? #34d399 : #059669;
+    out property <color> warn: dark ? #fbbf24 : #d97706;
+    out property <color> bad: dark ? #f87171 : #dc2626;
+    out property <color> grid: dark ? #1a2338 : #e5e9f1;
+    out property <color> accent-soft: accent.with-alpha(dark ? 0.18 : 0.12);
+    out property <color> on-accent: #ffffff;
+    out property <color> shadow: #000000.with-alpha(dark ? 0.45 : 0.12);
+
+    out property <[color]> series: [
+        #6d7cff, #22d3ee, #34d399, #fbbf24, #fb7185, #a78bfa, #38bdf8, #fb923c
+    ];
+    pure function series-color(i: int) -> color {
+        series[Math.mod(i, 8)]
+    }
+
+    out property <length> radius: 12px;
+    out property <length> fs-caption: 11px;
+    out property <length> fs-small: 12px;
+    out property <length> fs-body: 13px;
+    out property <length> fs-title: 15px;
+    out property <length> fs-h1: 22px;
+    out property <length> fs-kpi: 26px;
+}

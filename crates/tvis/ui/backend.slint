@@ -1,0 +1,100 @@
+import {
+    ChartData, MetricCard, WatchRow, TreeRow, StatItem, InsightRow, MonitorHeader, SystemView,
+    CoreBar, TopRow, ProcRow, AlertRuleRow, AlertLogRow, Choice, HoverItem
+} from "types.slint";
+
+// Single seam between the views and Rust. Rust writes `in` properties and
+// reacts to callbacks; views never talk to the engine directly.
+export global Backend {
+    // ── shell ────────────────────────────────────────────────
+    in-out property <int> page: 0;   // 0 dashboard · 1 monitor · 2 processes · 3 alerts · 4 settings
+    callback page-changed(int);
+    public function go(p: int) {
+        root.page = p;
+        root.page-changed(p);
+    }
+    in property <string> host: "";
+    in property <string> sampling-label: "";
+    in property <string> version: "";
+    in property <bool> live: true;
+    in-out property <bool> paused: false;
+    in property <string> toast-text: "";
+    in property <int> toast-kind: 0;   // 0 info, 1 success, 2 error
+    in property <int> alerts-firing: 0;
+    callback toggle-pause();
+    callback dismiss-toast();
+
+    // ── dashboard ────────────────────────────────────────────
+    in property <SystemView> system;
+    in property <[CoreBar]> cores;
+    in property <ChartData> cpu-chart;
+    in property <ChartData> mem-chart;
+    in property <[TopRow]> top-cpu;
+    in property <[TopRow]> top-mem;
+
+    // ── monitor ──────────────────────────────────────────────
+    in property <[WatchRow]> watchlist;
+    in property <MonitorHeader> monitor;
+    in property <bool> has-selection: false;
+    in property <[MetricCard]> cards;
+    in property <ChartData> chart;
+    in property <[StatItem]> stats;
+    in property <[InsightRow]> insights;
+    in property <[TreeRow]> tree;
+    in property <string> chart-title;
+    in-out property <int> window-index: 2;          // see Rust `WINDOWS`
+    in-out property <int> chart-view: 0;            // 0 aggregate · 1 per process · 2 compare
+    in-out property <int> tree-mode: 0;             // 0 hierarchy · 1 flat by metric
+    in-out property <bool> show-threads: false;
+    in property <float> hover-frac: -1;
+    in property <string> hover-time;
+    in property <[HoverItem]> hover-items;
+    callback select-target(string);
+    callback unwatch(string);
+    callback clear-history(string);
+    callback export-target(string, int);
+    callback select-metric(string);
+    callback view-changed();
+    callback chart-hover(float);
+    callback chart-leave();
+    callback open-data-dir();
+
+    // ── processes ────────────────────────────────────────────
+    in property <[ProcRow]> procs;
+    in property <string> procs-summary;
+    in-out property <bool> proc-group: true;
+    in-out property <string> proc-filter;
+    in property <int> proc-sort-col: 1;
+    in property <bool> proc-sort-asc: false;
+    callback proc-filter-changed(string);
+    callback sort-procs(int);
+    callback watch-process(string, bool);
+    callback watch-text(string);
+
+    // ── alerts ───────────────────────────────────────────────
+    in property <[AlertRuleRow]> rules;
+    in property <[AlertLogRow]> alert-log;
+    in property <[Choice]> alert-metrics;
+    in property <[string]> alert-target-labels;
+    in property <[string]> alert-metric-labels;
+    callback add-alert(string, int, int, int, float, float);   // name, target idx, metric idx, comparison, threshold, seconds
+    callback remove-alert(int);
+    callback toggle-alert(int, bool);
+    callback clear-alert-log();
+
+    // ── settings (owned by the UI, mirrored to disk by Rust) ─
+    in-out property <int> theme-mode: 0;
+    in-out property <int> accent-index: 0;
+    in-out property <int> interval-index: 2;
+    in-out property <int> retention-index: 2;
+    in-out property <int> smoothing: 0;
+    in-out property <bool> chart-fill: true;
+    in-out property <bool> chart-grid: true;
+    in-out property <int> line-width: 1;
+    in-out property <int> byte-base: 0;
+    in-out property <bool> cpu-normalized: false;
+    in property <string> data-dir;
+    in property <string> engine-info;
+    callback settings-changed();
+    callback reset-settings();
+}

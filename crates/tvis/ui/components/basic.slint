@@ -1,0 +1,391 @@
+import { Theme } from "../theme.slint";
+
+export component Icon {
+    in property <image> source;
+    in property <color> color: Theme.text-dim;
+    in property <length> size: 16px;
+    width: size;
+    height: size;
+    Image {
+        source: root.source;
+        colorize: root.color;
+        width: 100%;
+        height: 100%;
+        image-fit: contain;
+    }
+}
+
+export component Card inherits Rectangle {
+    background: Theme.surface;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.border-soft;
+}
+
+export component Label inherits Text {
+    color: Theme.text;
+    font-size: Theme.fs-body;
+    overflow: elide;
+}
+
+export component Caption inherits Text {
+    color: Theme.text-faint;
+    font-size: Theme.fs-caption;
+    font-weight: 600;
+    overflow: elide;
+}
+
+// kind: 0 primary, 1 secondary, 2 ghost, 3 danger
+export component Btn inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <int> kind: 1;
+    in property <bool> enabled: true;
+    in property <bool> active: false;
+    callback clicked;
+
+    property <color> fg: kind == 0 ? Theme.on-accent : kind == 3 ? Theme.bad : (active ? Theme.accent : Theme.text);
+    height: 32px;
+    min-width: 32px;
+    border-radius: 8px;
+    border-width: kind == 1 ? 1px : 0px;
+    border-color: Theme.border;
+    background: kind == 0 ? (ta.has-hover ? Theme.accent.brighter(0.15) : Theme.accent)
+        : kind == 3 ? (ta.has-hover ? Theme.bad.with-alpha(0.18) : Theme.bad.with-alpha(0.10))
+        : active ? Theme.accent-soft
+        : (ta.has-hover ? Theme.surface-hover : kind == 1 ? Theme.surface-hi : transparent);
+    opacity: enabled ? 1 : 0.45;
+    animate background { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: root.text == "" ? 8px : 12px;
+        padding-right: root.text == "" ? 8px : 12px;
+        spacing: 7px;
+        alignment: center;
+        if root.icon.width > 0: Icon {
+            source: root.icon;
+            color: root.fg;
+            size: 15px;
+            y: (parent.height - self.height) / 2;
+        }
+        if root.text != "": Text {
+            text: root.text;
+            color: root.fg;
+            font-size: Theme.fs-body;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component Badge inherits Rectangle {
+    in property <string> text;
+    in property <color> tint: Theme.accent;
+    height: 20px;
+    border-radius: 10px;
+    background: tint.with-alpha(0.16);
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 9px;
+        Text {
+            text: root.text;
+            color: root.tint;
+            font-size: Theme.fs-caption;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component StatusDot inherits Rectangle {
+    in property <bool> on: true;
+    in property <color> tint: Theme.good;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background: on ? tint : Theme.text-faint;
+}
+
+export component Toggle inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    background: checked ? Theme.accent : Theme.surface-hover;
+    border-width: 1px;
+    border-color: checked ? Theme.accent : Theme.border;
+    animate background { duration: 120ms; }
+    Rectangle {
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        y: 3px;
+        x: root.checked ? parent.width - self.width - 3px : 3px;
+        background: root.checked ? Theme.on-accent : Theme.text-dim;
+        animate x { duration: 120ms; easing: ease-out; }
+    }
+    TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+}
+
+export component Segmented inherits Rectangle {
+    in property <[string]> items;
+    in-out property <int> current;
+    callback selected(int);
+    height: 30px;
+    border-radius: 8px;
+    background: Theme.surface-hi;
+    border-width: 1px;
+    border-color: Theme.border-soft;
+    HorizontalLayout {
+        padding: 2px;
+        spacing: 2px;
+        for item[i] in root.items: Rectangle {
+            border-radius: 6px;
+            background: i == root.current ? Theme.accent-soft : (t.has-hover ? Theme.surface-hover : transparent);
+            animate background { duration: 100ms; }
+            HorizontalLayout {
+                padding-left: 11px;
+                padding-right: 11px;
+                Text {
+                    text: item;
+                    font-size: Theme.fs-small;
+                    font-weight: 600;
+                    color: i == root.current ? Theme.accent : Theme.text-dim;
+                    vertical-alignment: center;
+                }
+            }
+            t := TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => {
+                    root.current = i;
+                    root.selected(i);
+                }
+            }
+        }
+    }
+}
+
+export component Field inherits Rectangle {
+    in-out property <string> text <=> input.text;
+    in property <string> placeholder;
+    in property <image> icon;
+    in property <InputType> input-type: InputType.text;
+    callback edited(string);
+    callback accepted(string);
+    height: 34px;
+    border-radius: 8px;
+    background: Theme.surface-hi;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.border-soft;
+    animate border-color { duration: 100ms; }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        if root.icon.width > 0: Icon {
+            source: root.icon;
+            size: 15px;
+            color: Theme.text-faint;
+            y: (parent.height - self.height) / 2;
+        }
+        Rectangle {
+            input := TextInput {
+                width: 100%;
+                height: 100%;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                vertical-alignment: center;
+                input-type: root.input-type;
+                single-line: true;
+                selection-background-color: Theme.accent.with-alpha(0.4);
+                selection-foreground-color: Theme.text;
+                edited => { root.edited(self.text); }
+                accepted => { root.accepted(self.text); }
+            }
+            if input.text == "" && root.placeholder != "": Text {
+                text: root.placeholder;
+                color: Theme.text-faint;
+                font-size: Theme.fs-body;
+                vertical-alignment: center;
+                width: 100%;
+            }
+        }
+    }
+}
+
+export component Select inherits Rectangle {
+    in property <[string]> items;
+    in-out property <int> current;
+    in property <length> menu-width: 200px;
+    callback selected(int);
+    height: 34px;
+    min-width: 120px;
+    border-radius: 8px;
+    background: ta.has-hover ? Theme.surface-hover : Theme.surface-hi;
+    border-width: 1px;
+    border-color: Theme.border-soft;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 10px;
+        spacing: 8px;
+        Text {
+            text: root.current >= 0 && root.current < root.items.length ? root.items[root.current] : "";
+            color: Theme.text;
+            font-size: Theme.fs-body;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        Icon {
+            source: @image-url("../icons/chevron-down.svg");
+            size: 14px;
+            y: (parent.height - self.height) / 2;
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { popup.show(); }
+    }
+    popup := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: max(root.width, root.menu-width);
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.surface;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Theme.border;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: Theme.shadow;
+            drop-shadow-offset-y: 6px;
+            VerticalLayout {
+                padding: 4px;
+                spacing: 1px;
+                for item[i] in root.items: Rectangle {
+                    height: 30px;
+                    border-radius: 6px;
+                    background: i == root.current ? Theme.accent-soft : (m.has-hover ? Theme.surface-hover : transparent);
+                    Text {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        text: item;
+                        color: i == root.current ? Theme.accent : Theme.text;
+                        font-size: Theme.fs-body;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    m := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => {
+                            root.current = i;
+                            root.selected(i);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Discrete slider: `steps` positions, `value` in [0, steps-1].
+export component StepSlider inherits Rectangle {
+    in property <int> steps: 5;
+    in-out property <int> value;
+    callback changed(int);
+    height: 24px;
+    min-width: 140px;
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.surface-hover;
+        Rectangle {
+            x: 0;
+            width: parent.width * (root.value / max(1, root.steps - 1));
+            border-radius: 2px;
+            background: Theme.accent;
+        }
+    }
+    Rectangle {
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        y: (parent.height - self.height) / 2;
+        x: (parent.width - self.width) * (root.value / max(1, root.steps - 1));
+        background: Theme.on-accent;
+        border-width: 3px;
+        border-color: Theme.accent;
+    }
+    ta := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        function update(x: length) {
+            let v = Math.round((x / root.width) * (root.steps - 1));
+            let v2 = Math.max(0, Math.min(root.steps - 1, v));
+            if v2 != root.value {
+                root.value = v2;
+                root.changed(v2);
+            }
+        }
+        pointer-event(e) => {
+            if e.button == PointerEventButton.left && e.kind == PointerEventKind.down { update(self.mouse-x); }
+        }
+        moved => { if self.pressed { update(self.mouse-x); } }
+    }
+}
+
+export component Meter inherits Rectangle {
+    in property <float> frac;
+    in property <color> tint: Theme.accent;
+    height: 6px;
+    border-radius: 3px;
+    background: Theme.surface-hover;
+    Rectangle {
+        x: 0;
+        width: parent.width * Math.max(0.0, Math.min(1.0, root.frac));
+        border-radius: 3px;
+        background: root.tint;
+        animate width { duration: 250ms; easing: ease-out; }
+    }
+}
+
+export component Sparkline inherits Rectangle {
+    in property <string> commands;
+    in property <color> tint: Theme.accent;
+    in property <bool> filled: true;
+    min-height: 16px;
+    if root.commands != "": Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: 1000;
+        viewbox-height: 1000;
+        fit: ImageFit.fill;
+        commands: root.commands + (root.filled ? " L 1000 1000 L 0 1000 Z" : "");
+        fill: root.filled ? @linear-gradient(180deg, root.tint.with-alpha(0.30) 0%, root.tint.with-alpha(0.0) 100%) : transparent;
+        stroke: transparent;
+    }
+    if root.commands != "": Path {
+        width: 100%;
+        height: 100%;
+        viewbox-width: 1000;
+        viewbox-height: 1000;
+        fit: ImageFit.fill;
+        commands: root.commands;
+        stroke: root.tint;
+        stroke-width: 1.5px;
+        fill: transparent;
+    }
+}
+
