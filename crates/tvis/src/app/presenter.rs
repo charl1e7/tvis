@@ -1218,8 +1218,9 @@ mod tests {
         let chart = d.gpu_chart.expect("gpu chart");
         assert_eq!(chart.lines.len(), 2);
         assert_eq!(chart.y_ticks.last().unwrap().label, "100%");
-        assert_eq!(d.top_gpu[0].name, "api-server");
+        assert_eq!(d.top_gpu[0].name, "ffmpeg", "most VRAM first");
         assert!(d.top_gpu.iter().any(|r| r.name == "ffmpeg" && r.watched));
+        assert!(d.top_gpu.iter().any(|r| r.name == "api-server" && !r.watched));
         assert!(d.top_gpu[0].value.contains('%') && d.top_gpu[0].value.contains("GiB"));
     }
 
@@ -1245,7 +1246,8 @@ mod tests {
         let mut r = req(Page::Processes, None);
         r.proc_sort = ProcSort::Gpu;
         let rows = state(&fx, &r).processes.unwrap().rows;
-        assert_eq!(rows[0].name, "api-server");
+        assert_eq!(rows[0].name, "ffmpeg");
+        assert_eq!(rows[1].name, "api-server");
         assert!(rows[0].gpu.contains("GiB"));
         let last = rows.last().unwrap();
         assert_eq!(last.gpu, "—");

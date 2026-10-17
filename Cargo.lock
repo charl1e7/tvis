@@ -4911,7 +4911,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tvis"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4934,7 +4934,7 @@ dependencies = [
 
 [[package]]
 name = "tvis-core"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "crossbeam-channel",
  "serde",
@@ -4947,7 +4947,7 @@ dependencies = [
 
 [[package]]
 name = "tvis-gpu"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "nvml-wrapper",
  "plist",
