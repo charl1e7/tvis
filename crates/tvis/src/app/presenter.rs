@@ -94,6 +94,17 @@ pub fn build(view: &EngineView<'_>, req: &ViewRequest) -> ViewState {
 
     let mut state = ViewState {
         sampling_label,
+        perf_label: {
+            let t = view.timings;
+            let ms = |d: std::time::Duration| format!("{:.0} ms", d.as_secs_f64() * 1000.0);
+            format!(
+                "Per tick: read processes {} · probes {} · store {} · build view {}",
+                ms(t.sample),
+                ms(t.probes),
+                ms(t.store),
+                ms(t.present)
+            )
+        },
         host: format!("{} · {}", view.system.host_name, view.system.os)
             .trim_matches([' ', '·'])
             .to_owned(),
@@ -537,7 +548,6 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
                 needle.is_empty()
                     || p.name.to_lowercase().contains(&needle)
                     || p.pid.to_string().contains(&needle)
-                    || p.command.to_lowercase().contains(&needle)
             })
             .map(|p: &ProcessSample| Row {
                 key: p.pid.to_string(),
@@ -1108,6 +1118,7 @@ mod tests {
             system: &fx.info,
             alerts: &fx.alerts,
             config: &fx.config,
+            timings: Default::default(),
             now: fx.now,
         };
         build(&view, req)

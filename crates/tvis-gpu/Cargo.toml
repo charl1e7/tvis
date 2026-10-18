@@ -13,15 +13,14 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-tvis-core = { path = "../tvis-core", version = "2.1.0" }
+tvis-core = { path = "../tvis-core", version = "2.1.1" }
 tracing = "0.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 nvml-wrapper = "0.13"
 
 [target.'cfg(windows)'.dependencies]
-wmi = "0.18"
-serde = { version = "1", features = ["derive"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dxgi", "Win32_System_Performance"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

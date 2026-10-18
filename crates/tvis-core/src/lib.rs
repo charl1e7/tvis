@@ -39,7 +39,9 @@ pub mod store;
 pub mod target;
 pub mod units;
 
-pub use engine::{Command, Engine, EngineConfig, EngineHandle, EngineView, Event, Observer};
+pub use engine::{
+    Command, Engine, EngineConfig, EngineHandle, EngineView, Event, Observer, TickTimings,
+};
 pub use frame::{Frame, Pid, ProcessKind, ProcessSample, SystemInfo, SystemSample};
 pub use metric::{MetricDescriptor, MetricId, MetricRegistry};
 pub use target::{Target, TargetId};

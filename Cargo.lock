@@ -726,7 +726,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -4911,7 +4910,7 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 
 [[package]]
 name = "tvis"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4934,7 +4933,7 @@ dependencies = [
 
 [[package]]
 name = "tvis-core"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "crossbeam-channel",
  "serde",
@@ -4947,15 +4946,14 @@ dependencies = [
 
 [[package]]
 name = "tvis-gpu"
-version = "2.1.0"
+version = "2.1.1"
 dependencies = [
  "nvml-wrapper",
  "plist",
- "serde",
  "tempfile",
  "tracing",
  "tvis-core",
- "wmi",
+ "windows",
 ]
 
 [[package]]
@@ -5902,21 +5900,6 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",
-]
-
-[[package]]
-name = "wmi"
-version = "0.18.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c81b85c57a57500e56669586496bf2abd5cf082b9d32995251185d105208b64"
-dependencies = [
- "chrono",
- "futures",
- "log",
- "serde",
- "thiserror 2.0.21",
- "windows",
- "windows-core",
 ]
 
 [[package]]

@@ -15,7 +15,7 @@ use tvis_core::Target;
 use tvis_core::alert::AlertEvent;
 use tvis_core::engine::{Command, Engine, EngineConfig, EngineView, Event, Observer};
 use tvis_core::metric::MetricRegistry;
-use tvis_core::source::{OpenFilesProbe, Probe, ProcessSource, SyntheticSource, SysinfoSource};
+use tvis_core::source::{Probe, ProcessDetailProbe, ProcessSource, SyntheticSource, SysinfoSource};
 use tvis_core::units::{ByteBase, format_value};
 
 use self::ui::{Ui, with_ui};
@@ -80,6 +80,12 @@ impl Observer for UiObserver {
             }
             r.clone()
         };
+        // Nobody is looking (minimised or hidden): keep recording, skip all the
+        // formatting, path building and UI work. The UI asks for a refresh as
+        // soon as the window comes back.
+        if !request.active {
+            return;
+        }
         let state = presenter::build(view, &request);
         *self.latest.lock().unwrap() = Some(state);
         if !self.scheduled.swap(true, Ordering::AcqRel) {
@@ -118,7 +124,7 @@ pub fn make_source(demo: bool, gpu: bool) -> (Box<dyn ProcessSource>, Vec<Box<dy
     if demo {
         return (Box::new(SyntheticSource::new(900)), vec![]);
     }
-    let mut probes: Vec<Box<dyn Probe>> = vec![Box::new(OpenFilesProbe::new())];
+    let mut probes: Vec<Box<dyn Probe>> = vec![Box::new(ProcessDetailProbe::new())];
     if gpu && let Some(p) = tvis_gpu::GpuProbe::detect() {
         probes.push(Box::new(p));
     }

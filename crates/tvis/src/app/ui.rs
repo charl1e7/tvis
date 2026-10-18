@@ -154,6 +154,7 @@ pub struct Ui {
     targets: RefCell<Vec<(String, String)>>,
     firing: RefCell<Vec<u64>>,
     save_timer: Timer,
+    visibility_timer: Timer,
     toast_timer: Timer,
     toast_seq: Cell<u64>,
 }
@@ -201,6 +202,7 @@ impl Ui {
             targets: RefCell::default(),
             firing: RefCell::default(),
             save_timer: Timer::default(),
+            visibility_timer: Timer::default(),
             toast_timer: Timer::default(),
             toast_seq: Cell::new(0),
         });
@@ -209,6 +211,7 @@ impl Ui {
         ui.rebuild_rules();
         ui.sync_request();
         ui.wire(window);
+        ui.watch_visibility();
         UI.with(|slot| *slot.borrow_mut() = Some(ui.clone()));
         ui
     }
@@ -324,6 +327,22 @@ impl Ui {
         self.schedule_save();
     }
 
+    /// Tells the presenter whether anyone can see the window, so a minimised
+    /// TVIS keeps recording without spending CPU on a UI nobody looks at.
+    fn watch_visibility(self: &Rc<Self>) {
+        let ui = Rc::downgrade(self);
+        self.visibility_timer
+            .start(TimerMode::Repeated, Duration::from_millis(500), move || {
+                let Some(ui) = ui.upgrade() else { return };
+                let Some(w) = ui.window.upgrade() else { return };
+                let active = w.window().is_visible() && !w.window().is_minimized();
+                let was = std::mem::replace(&mut ui.request.lock().unwrap().active, active);
+                if active && !was {
+                    let _ = ui.engine.send(Command::Refresh);
+                }
+            });
+    }
+
     fn schedule_save(&self) {
         let store = self.store.clone();
         let settings = self.settings.clone();
@@ -368,8 +387,12 @@ impl Ui {
             r.smoothing = f64::from(s.smoothing) * 0.15;
             r.byte_base = s.byte_base;
             r.cpu_normalized = s.cpu_normalized;
-            let px = (w.window().size().width as f64 - 420.0).max(400.0);
-            r.chart_px = px as usize;
+            // Plot width in logical pixels (not device pixels, which are 1.5-2x larger
+            // on HiDPI screens): one min/max pair per two pixels keeps every spike
+            // visible while keeping the paths Slint has to tessellate small.
+            let scale = f64::from(w.window().scale_factor()).max(1.0);
+            let plot = (f64::from(w.window().size().width) / scale - 420.0).max(400.0);
+            r.chart_px = (plot / 2.0) as usize;
         }
         let _ = self.engine.send(Command::Refresh);
     }
@@ -387,6 +410,7 @@ impl Ui {
         };
         let b = w.global::<Backend>();
         b.set_sampling_label(s.sampling_label.as_str().into());
+        b.set_perf_label(s.perf_label.as_str().into());
         b.set_host(s.host.as_str().into());
         b.set_live(s.live);
         b.set_paused(s.paused);

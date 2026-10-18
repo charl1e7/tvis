@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.1.1
+
+### Fixed
+- **Windows: every GPU is listed.** Adapters are enumerated through DXGI, so an
+  integrated GPU now shows up next to a discrete NVIDIA card (NVML still owns the
+  NVIDIA device, so nothing is listed twice). Dedicated memory totals and exact
+  adapter names come from DXGI.
+
+### Performance
+- Dashboard CPU use drops roughly 5x (measured): bar animations forced about
+  15 full repaints after every tick; they are gone.
+- Chart paths hold one min/max pair per two *logical* pixels instead of per
+  device pixel, which matters on HiDPI screens.
+- Windows GPU counters are read with PDH on the engine thread instead of three
+  WMI queries per second (WMI "formatted data" classes keep a provider process busy).
+- Command lines are no longer requested from sysinfo: protected Windows
+  processes never yield one, so every tick re-opened dozens of processes for
+  nothing. The process filter matches name and PID.
+- Disk throughput and open files are measured only for watched processes
+  (`ProcessDetailProbe`, replacing `OpenFilesProbe`); rates use cumulative
+  counters so a newly watched process no longer reports a spike.
+- Nothing is formatted or drawn while the window is minimised or hidden;
+  recording continues.
+- Settings → Performance shows the engine's per-tick cost.
+
 ## 2.1.0
 
 ### Added
