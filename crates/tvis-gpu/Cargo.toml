@@ -13,7 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-tvis-core = { path = "../tvis-core", version = "2.1.0" }
+tvis-core = { path = "../tvis-core", version = "2.1.1" }
 tracing = "0.1"
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
