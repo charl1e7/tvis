@@ -1,6 +1,6 @@
 import {
     ChartData, MetricCard, WatchRow, TreeRow, StatItem, InsightRow, MonitorHeader, SystemView,
-    CoreBar, TopRow, ProcRow, AlertRuleRow, AlertLogRow, Choice, HoverItem
+    CoreBar, TopRow, ProcRow, GpuCard, AlertRuleRow, AlertLogRow, Choice, HoverItem
 } from "types.slint";
 
 // Single seam between the views and Rust. Rust writes `in` properties and
@@ -31,6 +31,10 @@ export global Backend {
     in property <ChartData> mem-chart;
     in property <[TopRow]> top-cpu;
     in property <[TopRow]> top-mem;
+    in property <bool> has-gpu: false;
+    in property <[GpuCard]> gpus;
+    in property <ChartData> gpu-chart;
+    in property <[TopRow]> top-gpu;
 
     // ── monitor ──────────────────────────────────────────────
     in property <[WatchRow]> watchlist;

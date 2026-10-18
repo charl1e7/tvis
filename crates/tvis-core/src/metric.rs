@@ -73,6 +73,8 @@ pub mod builtin {
     pub const IO_READ: MetricId = MetricId::new("io.read");
     pub const IO_WRITE: MetricId = MetricId::new("io.write");
     pub const OPEN_FILES: MetricId = MetricId::new("files");
+    pub const GPU_UTIL: MetricId = MetricId::new("gpu.util");
+    pub const GPU_MEM: MetricId = MetricId::new("gpu.mem");
 }
 
 /// The metrics provided by [`crate::source::SysinfoSource`].

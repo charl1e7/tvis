@@ -114,15 +114,15 @@ impl Observer for UiObserver {
     }
 }
 
-pub fn make_source(demo: bool) -> (Box<dyn ProcessSource>, Vec<Box<dyn Probe>>) {
+pub fn make_source(demo: bool, gpu: bool) -> (Box<dyn ProcessSource>, Vec<Box<dyn Probe>>) {
     if demo {
-        (Box::new(SyntheticSource::new(900)), vec![])
-    } else {
-        (
-            Box::new(SysinfoSource::new()),
-            vec![Box::new(OpenFilesProbe::new())],
-        )
+        return (Box::new(SyntheticSource::new(900)), vec![]);
     }
+    let mut probes: Vec<Box<dyn Probe>> = vec![Box::new(OpenFilesProbe::new())];
+    if gpu && let Some(p) = tvis_gpu::GpuProbe::detect() {
+        probes.push(Box::new(p));
+    }
+    (Box::new(SysinfoSource::new()), probes)
 }
 
 pub fn run(cli: Cli) -> Result<()> {
@@ -135,7 +135,7 @@ pub fn run(cli: Cli) -> Result<()> {
         settings.interval_ms = ms;
     }
 
-    let (source, probes) = make_source(cli.demo);
+    let (source, probes) = make_source(cli.demo, !cli.no_gpu);
     let engine = Engine::new(
         source,
         probes,

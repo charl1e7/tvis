@@ -9,6 +9,7 @@
 //! |--------------|------------------------------------------------------------------|
 //! | [`metric`]   | metric identifiers, descriptors and the [`metric::MetricRegistry`] |
 //! | [`frame`]    | one immutable snapshot of the machine ([`frame::Frame`])         |
+//! | [`gpu`]      | GPU samples and the per-process GPU metrics                      |
 //! | [`source`]   | where frames come from ([`source::ProcessSource`], [`source::Probe`]) |
 //! | [`target`]   | what the user watches and how it resolves to processes           |
 //! | [`series`]   | time-series ring buffers and decimation                          |
@@ -29,6 +30,7 @@ pub mod analysis;
 pub mod engine;
 pub mod export;
 pub mod frame;
+pub mod gpu;
 pub mod metric;
 pub mod series;
 pub mod source;

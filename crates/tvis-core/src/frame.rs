@@ -99,6 +99,8 @@ pub struct Frame {
     pub wall_ms: u64,
     pub system: SystemSample,
     pub processes: Vec<ProcessSample>,
+    /// Graphics processors, filled by GPU probes (empty when there are none).
+    pub gpus: Vec<crate::gpu::GpuSample>,
     index: HashMap<Pid, usize>,
 }
 

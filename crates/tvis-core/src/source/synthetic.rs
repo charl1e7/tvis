@@ -1,5 +1,6 @@
 use super::ProcessSource;
 use crate::frame::{Frame, ProcessSample, SystemInfo, SystemSample};
+use crate::gpu::{GpuSample, GpuVendor};
 use crate::metric::{MetricDescriptor, builtin, builtin_descriptors};
 
 /// Deterministic fake machine: used by `--demo`, screenshots and tests, and a
@@ -184,6 +185,63 @@ impl SyntheticSource {
             14.0,
         );
 
+        // GPU load of a few processes (renderer + an encoder + an ML worker with growing VRAM).
+        let mut gpu_load = |pid: u32, util: f64, mem_mib: f64| {
+            if let Some(p) = procs.iter_mut().find(|p| p.pid == pid) {
+                p.set(builtin::GPU_UTIL, util.clamp(0.0, 100.0));
+                p.set(builtin::GPU_MEM, mem_mib * MIB);
+            }
+        };
+        gpu_load(
+            700,
+            62.0 + 18.0 * wave(25.0, 0.3) + 4.0 * noise(80),
+            1850.0 + 20.0 * wave(40.0, 0.0),
+        );
+        gpu_load(600, 8.0 + 5.0 * wave(50.0, 1.2) + 2.0 * noise(81), 420.0);
+        gpu_load(
+            210,
+            14.0 + 10.0 * wave(70.0, 0.7) + 3.0 * noise(82),
+            900.0 + n * 1.4,
+        );
+        gpu_load(1, 1.0, 60.0);
+        let gpu_util = |pid: u32| {
+            procs
+                .iter()
+                .find(|p| p.pid == pid)
+                .map_or(0.0, |p| p.value(builtin::GPU_UTIL))
+        };
+        let gpu_used: f64 = procs.iter().map(|p| p.value(builtin::GPU_MEM)).sum();
+        let discrete_util =
+            (gpu_util(700) + gpu_util(210) + 4.0 + 2.0 * noise(83)).clamp(0.0, 100.0);
+        let gpus = vec![
+            GpuSample {
+                id: "demo:0".into(),
+                name: "Demo RTX 4080".into(),
+                vendor: GpuVendor::Nvidia,
+                utilization: Some(discrete_util),
+                mem_used: Some((gpu_used + 900.0 * MIB) as u64),
+                mem_total: Some((16.0 * 1024.0 * MIB) as u64),
+                temperature: Some(52.0 + discrete_util * 0.32 + noise(84)),
+                power: Some(38.0 + discrete_util * 2.1 + 2.0 * noise(85)),
+                clock_mhz: Some(1400.0 + discrete_util * 14.0),
+                fan: Some(30.0 + discrete_util * 0.4),
+            },
+            GpuSample {
+                id: "demo:1".into(),
+                name: "Demo Radeon Graphics".into(),
+                vendor: GpuVendor::Amd,
+                utilization: Some(
+                    (7.0 + 5.0 * wave(33.0, 2.0) + 2.0 * noise(86)).clamp(0.0, 100.0),
+                ),
+                mem_used: Some((620.0 * MIB) as u64),
+                mem_total: Some((2048.0 * MIB) as u64),
+                temperature: Some(41.0 + 2.0 * noise(87)),
+                power: Some(6.5 + noise(88)),
+                clock_mhz: Some(800.0),
+                fan: None,
+            },
+        ];
+
         let cores = 16usize;
         let per_core: Vec<f64> = (0..cores)
             .map(|c| {
@@ -205,6 +263,7 @@ impl SyntheticSource {
             process_count: procs.len(),
         };
         let mut frame = Frame::new(system, procs);
+        frame.gpus = gpus;
         frame.t = t;
         frame
     }
@@ -223,7 +282,9 @@ impl ProcessSource for SyntheticSource {
     }
 
     fn descriptors(&self) -> Vec<MetricDescriptor> {
-        builtin_descriptors()
+        let mut d = builtin_descriptors();
+        d.extend(crate::gpu::descriptors());
+        d
     }
 
     fn sample(&mut self) -> Frame {
@@ -255,6 +316,10 @@ mod tests {
             fa[5].process(210).unwrap().value(builtin::MEM_RSS),
             fb[5].process(210).unwrap().value(builtin::MEM_RSS)
         );
-        assert!(a.sample().process(700).is_some());
+        let f = a.sample();
+        assert!(f.process(700).is_some());
+        assert_eq!(f.gpus.len(), 2);
+        assert!(f.process(700).unwrap().value(builtin::GPU_MEM) > 0.0);
+        assert!(f.gpus[0].utilization.unwrap() <= 100.0);
     }
 }

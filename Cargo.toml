@@ -1,10 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["crates/tvis-core", "crates/tvis"]
+members = ["crates/tvis-core", "crates/tvis-gpu", "crates/tvis"]
 default-members = ["crates/tvis"]
 
 [workspace.package]
-version = "2.0.0"
+version = "2.1.0"
 edition = "2024"
 rust-version = "1.95"
 authors = ["charl1e7"]
