@@ -80,6 +80,21 @@ pub enum UpdateReason {
     Command,
 }
 
+/// Wall-clock cost of the engine's own work during the most recent tick.
+///
+/// Surfaced in the UI so slow machines can be diagnosed without a profiler.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TickTimings {
+    /// Reading the process table (`ProcessSource::sample`).
+    pub sample: Duration,
+    /// Extra probes (open files, GPU).
+    pub probes: Duration,
+    /// Feeding the store and evaluating alerts.
+    pub store: Duration,
+    /// Building the view for the previous update.
+    pub present: Duration,
+}
+
 /// Read-only view handed to the observer after every update.
 pub struct EngineView<'a> {
     pub reason: UpdateReason,
@@ -90,6 +105,7 @@ pub struct EngineView<'a> {
     pub system: &'a SystemInfo,
     pub alerts: &'a AlertEngine,
     pub config: &'a EngineConfig,
+    pub timings: TickTimings,
     /// Seconds since the engine started (the clock of every series).
     pub now: f64,
 }
@@ -112,6 +128,7 @@ pub struct Engine {
     last_frame: Option<Frame>,
     /// Frames supplied by [`ProcessSource::backfill`]; replayed into targets added later.
     history: Vec<Frame>,
+    timings: TickTimings,
 }
 
 fn clamp_interval(d: Duration) -> Duration {
@@ -154,6 +171,7 @@ impl Engine {
             start_wall_ms: wall_now_ms(),
             last_frame: None,
             history: Vec::new(),
+            timings: TickTimings::default(),
         }
     }
 
@@ -171,7 +189,9 @@ impl Engine {
 
     /// Takes one sample and feeds store and alerts. Returns alert transitions.
     fn tick(&mut self) -> Vec<AlertEvent> {
+        let started = Instant::now();
         let mut frame = self.source.sample();
+        self.timings.sample = started.elapsed();
         frame.t = self.now();
         frame.wall_ms = self.start_wall_ms + (frame.t * 1000.0) as u64;
 
@@ -184,13 +204,17 @@ impl Engine {
                 .filter(|p| seen.insert(*p))
                 .collect()
         };
+        let probes_started = Instant::now();
         let ctx = ProbeContext { watched: &watched };
         for probe in &mut self.probes {
             probe.probe(&ctx, &mut frame);
         }
+        self.timings.probes = probes_started.elapsed();
 
+        let store_started = Instant::now();
         self.store.ingest(&frame, &self.registry);
         let events = self.alerts.evaluate(&self.store, &self.registry, frame.t);
+        self.timings.store = store_started.elapsed();
         self.last_frame = Some(frame);
         events
     }
@@ -279,7 +303,8 @@ impl Engine {
         Ok(path.clone())
     }
 
-    fn publish(&self, reason: UpdateReason, observer: &mut dyn Observer) {
+    fn publish(&mut self, reason: UpdateReason, observer: &mut dyn Observer) {
+        let started = Instant::now();
         observer.on_update(&EngineView {
             reason,
             store: &self.store,
@@ -288,8 +313,10 @@ impl Engine {
             system: &self.system,
             alerts: &self.alerts,
             config: &self.config,
+            timings: self.timings,
             now: self.now(),
         });
+        self.timings.present = started.elapsed();
     }
 
     /// Runs the engine on a dedicated thread.

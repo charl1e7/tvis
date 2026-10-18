@@ -726,7 +726,6 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
- "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -4951,11 +4950,10 @@ version = "2.1.0"
 dependencies = [
  "nvml-wrapper",
  "plist",
- "serde",
  "tempfile",
  "tracing",
  "tvis-core",
- "wmi",
+ "windows",
 ]
 
 [[package]]
@@ -5902,21 +5900,6 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-wlr",
-]
-
-[[package]]
-name = "wmi"
-version = "0.18.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c81b85c57a57500e56669586496bf2abd5cf082b9d32995251185d105208b64"
-dependencies = [
- "chrono",
- "futures",
- "log",
- "serde",
- "thiserror 2.0.21",
- "windows",
- "windows-core",
 ]
 
 [[package]]

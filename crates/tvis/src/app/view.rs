@@ -91,6 +91,8 @@ impl ProcSort {
 /// What the UI currently needs; the presenter only computes that.
 #[derive(Clone, Debug)]
 pub struct ViewRequest {
+    /// The window is visible and not minimised; otherwise nothing is presented.
+    pub active: bool,
     pub page: Page,
     pub selected: Option<TargetId>,
     pub metric: String,
@@ -113,6 +115,7 @@ pub struct ViewRequest {
 impl Default for ViewRequest {
     fn default() -> Self {
         Self {
+            active: true,
             page: Page::Dashboard,
             selected: None,
             metric: "cpu".into(),
@@ -306,6 +309,8 @@ pub struct ProcessesV {
 #[derive(Clone, Debug, Default)]
 pub struct ViewState {
     pub sampling_label: String,
+    /// `"sample 14 ms · probes 3 ms · store 1 ms · view 2 ms"`
+    pub perf_label: String,
     pub host: String,
     pub live: bool,
     pub paused: bool,

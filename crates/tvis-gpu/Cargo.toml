@@ -20,8 +20,7 @@ tracing = "0.1"
 nvml-wrapper = "0.13"
 
 [target.'cfg(windows)'.dependencies]
-wmi = "0.18"
-serde = { version = "1", features = ["derive"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Dxgi", "Win32_System_Performance"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 plist = "1"

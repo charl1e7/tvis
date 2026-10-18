@@ -1,15 +1,15 @@
+use std::collections::HashMap;
 use std::time::Instant;
 
 use sysinfo::{MemoryRefreshKind, ProcessRefreshKind, ProcessesToUpdate, System};
 
 use super::{Probe, ProbeContext, ProcessSource};
-use crate::frame::{Frame, ProcessKind, ProcessSample, SystemInfo, SystemSample};
+use crate::frame::{Frame, Pid, ProcessKind, ProcessSample, SystemInfo, SystemSample};
 use crate::metric::{MetricDescriptor, builtin, builtin_descriptors};
 
 /// Real data from the operating system via the `sysinfo` crate.
 pub struct SysinfoSource {
     sys: System,
-    last_refresh: Instant,
 }
 
 impl SysinfoSource {
@@ -18,10 +18,7 @@ impl SysinfoSource {
         sys.refresh_cpu_usage();
         sys.refresh_memory_specifics(MemoryRefreshKind::everything());
         sys.refresh_processes_specifics(ProcessesToUpdate::All, true, Self::refresh_kind());
-        Self {
-            sys,
-            last_refresh: Instant::now(),
-        }
+        Self { sys }
     }
 
     /// What is refreshed for every process on every tick.
@@ -32,10 +29,9 @@ impl SysinfoSource {
     /// processes never yield one, so each tick re-opens and re-reads dozens of
     /// processes for nothing.
     fn refresh_kind() -> ProcessRefreshKind {
-        ProcessRefreshKind::nothing()
-            .with_cpu()
-            .with_memory()
-            .with_disk_usage()
+        // Disk I/O and open files are per-process syscalls that only matter for
+        // watched processes, so `ProcessDetailProbe` reads them instead.
+        ProcessRefreshKind::nothing().with_cpu().with_memory()
     }
 }
 
@@ -62,16 +58,14 @@ impl ProcessSource for SysinfoSource {
     }
 
     fn descriptors(&self) -> Vec<MetricDescriptor> {
-        // Open files are provided by `OpenFilesProbe`.
+        // Disk I/O and open files are provided by `ProcessDetailProbe`.
         builtin_descriptors()
             .into_iter()
-            .filter(|d| d.id != builtin::OPEN_FILES)
+            .filter(|d| !DETAIL_METRICS.contains(&d.id))
             .collect()
     }
 
     fn sample(&mut self) -> Frame {
-        let dt = self.last_refresh.elapsed().as_secs_f64().max(0.05);
-        self.last_refresh = Instant::now();
         self.sys.refresh_cpu_usage();
         self.sys
             .refresh_memory_specifics(MemoryRefreshKind::everything());
@@ -109,12 +103,9 @@ impl ProcessSource for SysinfoSource {
                 ProcessKind::Process
             };
             s.start_time = p.start_time();
-            let io = p.disk_usage();
             s.set(builtin::CPU, f64::from(p.cpu_usage()));
             s.set(builtin::MEM_RSS, p.memory() as f64);
             s.set(builtin::MEM_VIRT, p.virtual_memory() as f64);
-            s.set(builtin::IO_READ, io.read_bytes as f64 / dt);
-            s.set(builtin::IO_WRITE, io.written_bytes as f64 / dt);
             if let Some(tasks) = p.tasks().filter(|_| s.kind == ProcessKind::Process) {
                 s.set(builtin::THREADS, tasks.len().max(1) as f64);
             }
@@ -133,31 +124,47 @@ impl ProcessSource for SysinfoSource {
     }
 }
 
-/// Counts open file descriptors/handles of watched processes.
+/// Metrics measured by [`ProcessDetailProbe`] rather than by the base source.
+const DETAIL_METRICS: [crate::metric::MetricId; 3] =
+    [builtin::IO_READ, builtin::IO_WRITE, builtin::OPEN_FILES];
+
+/// Disk throughput and open files/handles of *watched* processes.
 ///
-/// Reading them is comparatively expensive, hence a probe that only looks at
-/// processes somebody cares about.
-pub struct OpenFilesProbe {
+/// Both need extra syscalls per process, so doing them for the few processes
+/// someone watches instead of the whole table keeps ticks cheap on machines
+/// with hundreds of processes.
+pub struct ProcessDetailProbe {
     sys: System,
+    /// Cumulative I/O counters at the previous sample, per pid.
+    previous: HashMap<Pid, IoSnapshot>,
 }
 
-impl OpenFilesProbe {
+struct IoSnapshot {
+    read: u64,
+    written: u64,
+    at: Instant,
+}
+
+impl ProcessDetailProbe {
     pub fn new() -> Self {
-        Self { sys: System::new() }
+        Self {
+            sys: System::new(),
+            previous: HashMap::new(),
+        }
     }
 }
 
-impl Default for OpenFilesProbe {
+impl Default for ProcessDetailProbe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Probe for OpenFilesProbe {
+impl Probe for ProcessDetailProbe {
     fn descriptors(&self) -> Vec<MetricDescriptor> {
         builtin_descriptors()
             .into_iter()
-            .filter(|d| d.id == builtin::OPEN_FILES)
+            .filter(|d| DETAIL_METRICS.contains(&d.id))
             .collect()
     }
 
@@ -168,19 +175,49 @@ impl Probe for OpenFilesProbe {
             .filter(|p| frame.process(**p).is_some_and(|s| !s.is_thread()))
             .map(|p| sysinfo::Pid::from_u32(*p))
             .collect();
+        self.previous
+            .retain(|pid, _| pids.iter().any(|p| p.as_u32() == *pid));
         if pids.is_empty() {
             return;
         }
         self.sys.refresh_processes_specifics(
             ProcessesToUpdate::Some(&pids),
             true,
-            ProcessRefreshKind::nothing().without_tasks(),
+            ProcessRefreshKind::nothing()
+                .with_disk_usage()
+                .without_tasks(),
         );
+        let now = Instant::now();
         for pid in pids {
-            let count = self.sys.process(pid).and_then(|p| p.open_files());
-            if let (Some(count), Some(sample)) = (count, frame.process_mut(pid.as_u32())) {
+            let Some(process) = self.sys.process(pid) else {
+                continue;
+            };
+            let Some(sample) = frame.process_mut(pid.as_u32()) else {
+                continue;
+            };
+            if let Some(count) = process.open_files() {
                 sample.set(builtin::OPEN_FILES, count as f64);
             }
+            let io = process.disk_usage();
+            let (read, written) = (io.total_read_bytes, io.total_written_bytes);
+            // Rates come from the cumulative counters so a freshly watched
+            // process does not report its whole history as one second of I/O.
+            if let Some(prev) = self.previous.get(&pid.as_u32()) {
+                let dt = now.duration_since(prev.at).as_secs_f64().max(0.05);
+                sample.set(builtin::IO_READ, read.saturating_sub(prev.read) as f64 / dt);
+                sample.set(
+                    builtin::IO_WRITE,
+                    written.saturating_sub(prev.written) as f64 / dt,
+                );
+            }
+            self.previous.insert(
+                pid.as_u32(),
+                IoSnapshot {
+                    read,
+                    written,
+                    at: now,
+                },
+            );
         }
     }
 }
@@ -203,30 +240,40 @@ mod tests {
     }
 
     #[test]
-    fn open_files_probe_reports_for_watched_only() {
+    fn detail_probe_reports_for_watched_only_and_rates_need_two_samples() {
         let mut src = SysinfoSource::new();
-        let mut frame = src.sample();
         let me = std::process::id();
-        OpenFilesProbe::new().probe(&ProbeContext { watched: &[me] }, &mut frame);
+        let mut probe = ProcessDetailProbe::new();
+
+        let mut frame = src.sample();
+        probe.probe(&ProbeContext { watched: &[me] }, &mut frame);
+        let mine = frame.process(me).unwrap();
         // Platforms without support simply report nothing.
         if cfg!(any(
             target_os = "linux",
             target_os = "macos",
             target_os = "windows"
         )) {
-            assert!(
-                frame
-                    .process(me)
-                    .unwrap()
-                    .get(builtin::OPEN_FILES)
-                    .is_some()
-            );
+            assert!(mine.get(builtin::OPEN_FILES).is_some());
         }
+        assert!(
+            mine.get(builtin::IO_READ).is_none(),
+            "first sight only records a baseline"
+        );
+
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        let mut frame = src.sample();
+        probe.probe(&ProbeContext { watched: &[me] }, &mut frame);
+        let mine = frame.process(me).unwrap();
+        assert!(mine.get(builtin::IO_READ).is_some());
+        assert!(mine.get(builtin::IO_WRITE).is_some());
+
         let other = frame
             .processes
             .iter()
             .find(|p| p.pid != me && !p.is_thread())
             .unwrap();
         assert!(other.get(builtin::OPEN_FILES).is_none());
+        assert!(other.get(builtin::IO_READ).is_none());
     }
 }

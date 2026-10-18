@@ -12,7 +12,7 @@ use crate::frame::{Frame, Pid, SystemInfo};
 use crate::metric::MetricDescriptor;
 
 pub use synthetic::SyntheticSource;
-pub use sysinfo_source::{OpenFilesProbe, SysinfoSource};
+pub use sysinfo_source::{ProcessDetailProbe, SysinfoSource};
 
 pub trait ProcessSource: Send {
     fn info(&self) -> SystemInfo;

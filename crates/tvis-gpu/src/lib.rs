@@ -7,18 +7,23 @@
 //! |----------|-------------------------------------------|--------------------------------------|
 //! | NVIDIA (Linux, Windows) | NVML, loaded at run time   | memory + utilisation (Linux)         |
 //! | Linux AMD / Intel       | sysfs + hwmon              | DRM `fdinfo` engine time and memory  |
-//! | Windows (any vendor)    | WDDM performance counters  | per-process engine time and VRAM     |
+//! | Windows (any vendor)    | PDH counters + DXGI adapters | per-process engine time and VRAM   |
 //! | macOS                   | IOKit `IOAccelerator`      | not exposed by the OS without root   |
 //!
 //! Nothing here links against a vendor library: NVML is `dlopen`ed, so the
 //! same binary runs on machines without an NVIDIA driver, and a machine with
 //! no supported GPU simply yields no probe ([`GpuProbe::detect`] returns `None`).
 
-#![forbid(unsafe_code)]
+// Only the two Windows modules below call into COM/PDH and opt back in.
+#![deny(unsafe_code)]
 
 mod drm;
+#[cfg(windows)]
+mod dxgi;
 mod mac;
 mod nvml;
+#[cfg(windows)]
+mod pdh;
 mod wddm;
 #[cfg(windows)]
 mod windows;
