@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use sysinfo::{MemoryRefreshKind, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
+use sysinfo::{MemoryRefreshKind, ProcessRefreshKind, ProcessesToUpdate, System};
 
 use super::{Probe, ProbeContext, ProcessSource};
 use crate::frame::{Frame, ProcessKind, ProcessSample, SystemInfo, SystemSample};
@@ -24,12 +24,18 @@ impl SysinfoSource {
         }
     }
 
+    /// What is refreshed for every process on every tick.
+    ///
+    /// Command lines, executable paths and environments are deliberately *not*
+    /// requested: with `UpdateKind::OnlyIfNotSet` sysinfo retries every process
+    /// whose command line is still empty on each refresh, and protected Windows
+    /// processes never yield one, so each tick re-opens and re-reads dozens of
+    /// processes for nothing.
     fn refresh_kind() -> ProcessRefreshKind {
         ProcessRefreshKind::nothing()
             .with_cpu()
             .with_memory()
             .with_disk_usage()
-            .with_cmd(UpdateKind::OnlyIfNotSet)
     }
 }
 
@@ -103,12 +109,6 @@ impl ProcessSource for SysinfoSource {
                 ProcessKind::Process
             };
             s.start_time = p.start_time();
-            s.command = p
-                .cmd()
-                .iter()
-                .map(|a| a.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" ");
             let io = p.disk_usage();
             s.set(builtin::CPU, f64::from(p.cpu_usage()));
             s.set(builtin::MEM_RSS, p.memory() as f64);

@@ -537,7 +537,6 @@ fn processes(cx: &Ctx<'_, '_>) -> ProcessesV {
                 needle.is_empty()
                     || p.name.to_lowercase().contains(&needle)
                     || p.pid.to_string().contains(&needle)
-                    || p.command.to_lowercase().contains(&needle)
             })
             .map(|p: &ProcessSample| Row {
                 key: p.pid.to_string(),

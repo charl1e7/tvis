@@ -127,7 +127,7 @@ impl Default for ViewRequest {
             smoothing: 0.0,
             byte_base: ByteBase::Binary,
             cpu_normalized: false,
-            chart_px: 900,
+            chart_px: 400,
         }
     }
 }

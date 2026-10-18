@@ -368,8 +368,12 @@ impl Ui {
             r.smoothing = f64::from(s.smoothing) * 0.15;
             r.byte_base = s.byte_base;
             r.cpu_normalized = s.cpu_normalized;
-            let px = (w.window().size().width as f64 - 420.0).max(400.0);
-            r.chart_px = px as usize;
+            // Plot width in logical pixels (not device pixels, which are 1.5-2x larger
+            // on HiDPI screens): one min/max pair per two pixels keeps every spike
+            // visible while keeping the paths Slint has to tessellate small.
+            let scale = f64::from(w.window().scale_factor()).max(1.0);
+            let plot = (f64::from(w.window().size().width) / scale - 420.0).max(400.0);
+            r.chart_px = (plot / 2.0) as usize;
         }
         let _ = self.engine.send(Command::Refresh);
     }

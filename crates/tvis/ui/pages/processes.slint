@@ -55,7 +55,7 @@ export component ProcessesPage inherits Rectangle {
             spacing: 14px;
             Field {
                 horizontal-stretch: 1;
-                placeholder: "Filter by name, PID or command…";
+                placeholder: "Filter by name or PID…";
                 icon: @image-url("../icons/search.svg");
                 text <=> Backend.proc-filter;
                 edited(t) => { Backend.proc-filter-changed(t); }
